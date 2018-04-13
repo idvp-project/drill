@@ -20,6 +20,7 @@ package org.apache.drill.common.config;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Collection;
 import java.util.List;
@@ -46,7 +47,18 @@ public class DrillConfig extends NestedConfig {
   private final ImmutableList<String> startupArguments;
 
   @SuppressWarnings("restriction")
-  private static final long MAX_DIRECT_MEMORY = sun.misc.VM.maxDirectMemory();
+  private static final long MAX_DIRECT_MEMORY = getMaxDirectMemoryInternal();
+
+  private static long getMaxDirectMemoryInternal() {
+    try {
+      Class<?> vmClass = Class.forName("sun.misc.VM");
+      Method maxDirectMemoryAccessor = vmClass.getDeclaredMethod("maxDirectMemory");
+      return (Long) maxDirectMemoryAccessor.invoke(null);
+    } catch (ReflectiveOperationException e) {
+      // java 9
+      return Runtime.getRuntime().maxMemory();
+    }
+  }
 
   @VisibleForTesting
   public DrillConfig(Config config) {
