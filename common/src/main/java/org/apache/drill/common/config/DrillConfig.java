@@ -50,13 +50,26 @@ public class DrillConfig extends NestedConfig {
   private static final long MAX_DIRECT_MEMORY = getMaxDirectMemoryInternal();
 
   private static long getMaxDirectMemoryInternal() {
+    Class<?> vmClass;
     try {
-      Class<?> vmClass = Class.forName("sun.misc.VM");
-      Method maxDirectMemoryAccessor = vmClass.getDeclaredMethod("maxDirectMemory");
-      return (Long) maxDirectMemoryAccessor.invoke(null);
+      vmClass = Class.forName("sun.misc.VM");
     } catch (ReflectiveOperationException e) {
-      // java 9
-      return Runtime.getRuntime().maxMemory();
+      try {
+        // java 9
+        vmClass = Class.forName("jdk.internal.misc.VM");
+      } catch (ClassNotFoundException e1) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    try {
+      Method maxDirectMemoryAccessor = vmClass.getDeclaredMethod("maxDirectMemory");
+      if (!maxDirectMemoryAccessor.isAccessible()) {
+        maxDirectMemoryAccessor.setAccessible(true);
+      }
+      return (Long) maxDirectMemoryAccessor.invoke(null);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 

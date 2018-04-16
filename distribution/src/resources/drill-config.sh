@@ -126,7 +126,7 @@ fi
 # Ensure that Java version is at least 1.8
 "$JAVA" -version 2>&1 | grep "version" | egrep -e "1\.4|1\.5|1\.6|1\.7" > /dev/null
 if [ $? -eq 0 ]; then
-  fatal_error "Java 1.8 is required to run Apache Drill."
+  fatal_error "At least Java 1.8 is required to run Apache Drill."
 fi
 
 # Check if a file exists and has relevant lines for execution
@@ -298,6 +298,12 @@ export DRILLBIT_CODE_CACHE_SIZE=${DRILLBIT_CODE_CACHE_SIZE:-"1G"}
 
 export DRILLBIT_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY"
 export DRILLBIT_OPTS="$DRILLBIT_OPTS -XX:ReservedCodeCacheSize=$DRILLBIT_CODE_CACHE_SIZE -Ddrill.exec.enable-epoll=false"
+
+"$JAVA" -version 2>&1 | grep "version" | egrep -e "1\.8" > /dev/null
+if [ $? -ne 0 ]; then
+  echo 'Setting up java.base module exports'
+  export DRILLBIT_OPTS="$DRILLBIT_OPTS --add-opens java.base/jdk.internal.misc=ALL-UNNAMED"
+fi
 
 
 # Under YARN, the log directory is usually YARN-provided. Replace any
