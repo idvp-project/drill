@@ -64,8 +64,8 @@ import org.apache.drill.jdbc.AlreadyClosedSqlException;
  *   {@link DatabaseMetaData}.
  * </p>
  * <p>
- *   It does not cover unimplemented {@link CallableStatement} or any relevant
- *   secondary objects such as {@link Array} or {@link Struct}).
+ *   It does not cover unimplemented {@link java.sql.CallableStatement} or any relevant
+ *   secondary objects such as {@link java.sql.Array} or {@link java.sql.Struct}).
  * </p>
  */
 @Category(JdbcTest.class)
@@ -414,6 +414,15 @@ public class Drill2489CallsAfterCloseThrowExceptionsTest extends JdbcTestBase {
     }
 
     @Override
+    protected boolean isOkayNonthrowingMethod(Method method) {
+      return
+          super.isOkayNonthrowingMethod(method)
+          // New Java 9 methods not implemented in Avatica.
+          || method.getName().equals("beginRequest")
+          || method.getName().equals("endRequest");
+    }
+
+    @Override
     protected boolean isOkaySpecialCaseException(Method method, Throwable cause) {
       final boolean result;
       if (super.isOkaySpecialCaseException(method, cause)) {
@@ -433,7 +442,12 @@ public class Drill2489CallsAfterCloseThrowExceptionsTest extends JdbcTestBase {
         // Special good-enough case--we had to use RuntimeException for now.
         result = true;
       }
-      else {
+      else if (SQLFeatureNotSupportedException.class == cause.getClass()
+                && (method.getName().equals("setShardingKeyIfValid")
+                    || method.getName().equals("setShardingKey"))) {
+        // New Java 9 methods not implemented in Avatica.
+        result = true;
+      } else {
         result = false;
       }
       return result;
@@ -462,7 +476,6 @@ public class Drill2489CallsAfterCloseThrowExceptionsTest extends JdbcTestBase {
     ClosedPlainStatementChecker(Class<Statement> intf, Statement jdbcObject) {
       super(intf, jdbcObject, PLAIN_STATEMENT_CLOSED_MESSAGE);
     }
-
     @Override
     protected boolean isOkayNonthrowingMethod(Method method) {
       // TODO: Java 8 method
@@ -491,6 +504,13 @@ public class Drill2489CallsAfterCloseThrowExceptionsTest extends JdbcTestBase {
                    || method.getName().equals("getLargeMaxRows"))) {
         // Special good-enough case--we had to use RuntimeException for now.
         result = true;
+      }
+      else if (NullPointerException.class == cause.getClass()
+              && (method.getName().equals("enquoteIdentifier")
+              || method.getName().equals("enquoteLiteral")
+              || method.getName().equals("enquoteNCharLiteral")
+              || method.getName().equals("isSimpleIdentifier"))) {
+          result = true;
       }
       else {
         result = false;
@@ -547,6 +567,13 @@ public class Drill2489CallsAfterCloseThrowExceptionsTest extends JdbcTestBase {
                    || method.getName().equals("clearBatch"))) {
         // Special good-enough case--we had to use RuntimeException for now.
         result = true;
+      }
+      else if (NullPointerException.class == cause.getClass()
+              && (method.getName().equals("enquoteIdentifier")
+              || method.getName().equals("enquoteLiteral")
+              || method.getName().equals("enquoteNCharLiteral")
+              || method.getName().equals("isSimpleIdentifier"))) {
+          result = true;
       } else {
         result = method.getName().equals("setObject")
           || method.getName().equals("executeLargeUpdate")
@@ -688,7 +715,9 @@ public class Drill2489CallsAfterCloseThrowExceptionsTest extends JdbcTestBase {
           || method.getName().equals("getConnection")
           // TODO: New Java 8 methods not implemented in Avatica.
           || method.getName().equals("getMaxLogicalLobSize")
-          || method.getName().equals("supportsRefCursors");
+          || method.getName().equals("supportsRefCursors")
+          // New Java 9 methods not implemented in Avatica.
+          || method.getName().equals("supportsSharding");
     }
 
     @Override

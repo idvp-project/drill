@@ -40,6 +40,7 @@ public class ReplacingInterpreter extends BasicInterpreter {
   private final List<ReplacingBasicValue> valueList;
 
   public ReplacingInterpreter(final String className, final List<ReplacingBasicValue> valueList) {
+    super(ASM5);
     this.className = className;
     this.valueList = valueList;
   }
