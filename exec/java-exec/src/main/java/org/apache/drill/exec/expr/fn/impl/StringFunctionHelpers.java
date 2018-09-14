@@ -20,6 +20,7 @@ package org.apache.drill.exec.expr.fn.impl;
 import io.netty.buffer.DrillBuf;
 import io.netty.util.internal.PlatformDependent;
 
+import org.apache.commons.lang3.text.WordUtils;
 import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
 import org.apache.drill.exec.expr.holders.VarCharHolder;
 import org.joda.time.chrono.ISOChronology;
@@ -156,15 +157,36 @@ public class StringFunctionHelpers {
   public static void initCap(int start, int end, DrillBuf inBuf, DrillBuf outBuf) {
     boolean capitalizeNext = true;
     int out = 0;
-    for (int id = start; id < end; id++, out++) {
+    int id;
+    for (id = start; id < end; id++, out++) {
       int currentByte = inBuf.getByte(id);
-      if (Character.isLetterOrDigit(currentByte)) {
-        currentByte = capitalizeNext ? Character.toUpperCase(currentByte) : Character.toLowerCase(currentByte);
-        capitalizeNext = false;
+      int length = StringFunctionUtil.utf8CharLen((byte) currentByte);
+      if (length == 1) {
+        if (Character.isLetterOrDigit(currentByte)) {
+          currentByte = capitalizeNext ? Character.toUpperCase(currentByte) : Character.toLowerCase(currentByte);
+          capitalizeNext = false;
+        } else {
+          capitalizeNext = true;
+        }
+        outBuf.setByte(out, currentByte);
       } else {
-        capitalizeNext = true;
+        break;
       }
-      outBuf.setByte(out, currentByte);
+    }
+
+    if (id != end) {
+      StringBuilder str = new StringBuilder(StringFunctionHelpers.toStringFromUTF8(id, end, inBuf));
+      for (int i = 0; i < str.length(); i++) {
+        char c = str.charAt(i);
+        if (Character.isLetterOrDigit(c)) {
+          str.setCharAt(i, capitalizeNext ? Character.toUpperCase(c) : Character.toLowerCase(c));
+          capitalizeNext = false;
+        } else {
+          capitalizeNext = true;
+        }
+      }
+
+      outBuf.setBytes(out, str.toString().getBytes(Charsets.UTF_8));
     }
   }
 

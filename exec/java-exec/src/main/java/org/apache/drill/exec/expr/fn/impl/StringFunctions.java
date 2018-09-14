@@ -476,7 +476,7 @@ public class StringFunctions{
   /*
    * Convert string to lower case.
    */
-  @FunctionTemplate(name = "lower",
+  @FunctionTemplate(names = {"lower", "to_lower"},
       scope = FunctionScope.SIMPLE,
       returnType = ReturnType.SAME_IN_OUT_LENGTH,
       nulls = NullHandling.NULL_IF_NULL,
@@ -496,9 +496,22 @@ public class StringFunctions{
       out.start = 0;
       out.end = input.end - input.start;
 
-      for (int id = input.start; id < input.end; id++) {
+      int id;
+      for (id = input.start; id < input.end; id++) {
         byte  currentByte = input.buffer.getByte(id);
-        out.buffer.setByte(id - input.start, Character.toLowerCase(currentByte)) ;
+
+        int length = org.apache.drill.exec.expr.fn.impl.StringFunctionUtil.utf8CharLen(currentByte);
+        if (length == 1) {
+          out.buffer.setByte(id - input.start, Character.toLowerCase(currentByte)) ;
+        } else {
+          break;
+        }
+      }
+
+      if (id != input.end) {
+        String str = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(id, input.end, input.buffer);
+        str = str.toLowerCase();
+        out.buffer.setBytes(id - input.start, str.getBytes(org.apache.drill.shaded.guava.com.google.common.base.Charsets.UTF_8));
       }
     }
   }
@@ -506,7 +519,7 @@ public class StringFunctions{
   /*
    * Convert string to upper case.
    */
-  @FunctionTemplate(name = "upper",
+  @FunctionTemplate(names = { "upper", "to_upper" },
       scope = FunctionScope.SIMPLE,
       returnType = ReturnType.SAME_IN_OUT_LENGTH,
       outputWidthCalculatorType = OutputWidthCalculatorType.CLONE,
@@ -527,9 +540,22 @@ public class StringFunctions{
       out.start = 0;
       out.end = input.end - input.start;
 
-      for (int id = input.start; id < input.end; id++) {
+      int id;
+      for (id = input.start; id < input.end; id++) {
         byte currentByte = input.buffer.getByte(id);
-        out.buffer.setByte(id - input.start, Character.toUpperCase(currentByte)) ;
+
+        int length = org.apache.drill.exec.expr.fn.impl.StringFunctionUtil.utf8CharLen(currentByte);
+        if (length == 1) {
+          out.buffer.setByte(id - input.start, Character.toUpperCase(currentByte)) ;
+        } else {
+          break;
+        }
+      }
+
+      if (id != input.end) {
+        String str = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(id, input.end, input.buffer);
+        str = str.toUpperCase();
+        out.buffer.setBytes(id - input.start, str.getBytes(org.apache.drill.shaded.guava.com.google.common.base.Charsets.UTF_8));
       }
     }
   }
