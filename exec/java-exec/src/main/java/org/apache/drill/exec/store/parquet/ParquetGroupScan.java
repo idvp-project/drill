@@ -133,7 +133,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     }
   }
 
-  private ParquetGroupScan(ParquetGroupScan that) {
+  public ParquetGroupScan(ParquetGroupScan that) {
     this(that, null);
   }
 
