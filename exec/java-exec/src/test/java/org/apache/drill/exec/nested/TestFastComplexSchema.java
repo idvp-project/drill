@@ -107,7 +107,7 @@ public class TestFastComplexSchema extends BaseTestQuery {
         .build().run();
 
     //result is not empty, and flatten compatible with (non-list) incoming records
-    testBuilder().sqlQuery("select flatten(first_name) from \n" +
+    testBuilder().sqlQuery("select flatten(first_name) n from \n" +
         "(select first_name from cp.`employee.json` where first_name='Sheri')")
         .unOrdered()
         .baselineColumns("n")
