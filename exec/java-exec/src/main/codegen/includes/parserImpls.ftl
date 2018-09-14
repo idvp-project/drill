@@ -182,33 +182,52 @@ SqlNodeList ParseRequiredFieldList(String relType) :
  * Parses a create view or replace existing view statement.
  *   CREATE { [OR REPLACE] VIEW | VIEW [IF NOT EXISTS] | VIEW } view_name [ (field1, field2 ...) ] AS select_statement
  */
-SqlNode SqlCreateOrReplaceView() :
+SqlNode SqlCreateOrReplaceViewOrStorage() :
 {
     SqlParserPos pos;
-    SqlIdentifier viewName;
+    SqlIdentifier name;
     SqlNode query;
     SqlNodeList fieldList;
-    String createViewType = "SIMPLE";
+    SqlNode configuration;
+    String createType = "SIMPLE";
 }
 {
     <CREATE> { pos = getPos(); }
-    [ <OR> <REPLACE> { createViewType = "OR_REPLACE"; } ]
-    <VIEW>
-    [
-        <IF> <NOT> <EXISTS> {
-            if (createViewType == "OR_REPLACE") {
-                throw new ParseException("Create view statement cannot have both <OR REPLACE> and <IF NOT EXISTS> clause");
+    [ <OR> <REPLACE> { createType = "OR_REPLACE"; } ]
+    (
+        <VIEW>
+        [
+            <IF> <NOT> <EXISTS> {
+                if (createType == "OR_REPLACE") {
+                    throw new ParseException("Create view statement cannot have both <OR REPLACE> and <IF NOT EXISTS> clause");
+                }
+                createType = "IF_NOT_EXISTS";
             }
-            createViewType = "IF_NOT_EXISTS";
+        ]
+        name = CompoundIdentifier()
+        fieldList = ParseOptionalFieldList("View")
+        <AS>
+        query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY)
+        {
+            return new SqlCreateView(pos, name, fieldList, query, SqlLiteral.createCharString(createType, getPos()));
         }
-    ]
-    viewName = CompoundIdentifier()
-    fieldList = ParseOptionalFieldList("View")
-    <AS>
-    query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY)
-    {
-        return new SqlCreateView(pos, viewName, fieldList, query, SqlLiteral.createCharString(createViewType, getPos()));
-    }
+    |
+        <STORAGE>
+        [
+            <IF> <NOT> <EXISTS> {
+                if (createType == "OR_REPLACE") {
+                    throw new ParseException("Create storage statement cannot have both <OR REPLACE> and <IF NOT EXISTS> clause");
+                }
+                createType = "IF_NOT_EXISTS";
+            }
+        ]
+        name = SimpleIdentifier()
+        <USING>
+        configuration = StringLiteral()
+        {
+            return new SqlCreateStorage(pos, name, SqlLiteral.createCharString(createType, getPos()), configuration);
+        }
+    )
 }
 
 /**
@@ -359,6 +378,24 @@ SqlNode SqlDropFunction() :
    {
        return new SqlDropFunction(pos, jar);
    }
+}
+
+/**
+ * Parses a drop storage or drop storage if exists statement.
+ * DROP STORAGE [IF EXISTS] storage_name;
+ */
+SqlNode SqlDropStorage() :
+{
+    SqlParserPos pos;
+    boolean storageExistenceCheck = false;
+}
+{
+    <DROP> { pos = getPos(); }
+    <STORAGE>
+    [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
+    {
+        return new SqlDropStorage(pos, SimpleIdentifier(), storageExistenceCheck);
+    }
 }
 
 <#if !parser.includeCompoundIdentifier >
