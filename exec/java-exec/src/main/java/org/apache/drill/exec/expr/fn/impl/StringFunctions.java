@@ -511,7 +511,7 @@ public class StringFunctions{
       if (id != input.end) {
         String str = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(id, input.end, input.buffer);
         str = str.toLowerCase();
-        out.buffer.setBytes(id - input.start, str.getBytes(org.apache.drill.shaded.guava.com.google.common.base.Charsets.UTF_8));
+        out.buffer.setBytes(id - input.start, str.getBytes(com.google.common.base.Charsets.UTF_8));
       }
     }
   }
@@ -555,7 +555,7 @@ public class StringFunctions{
       if (id != input.end) {
         String str = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(id, input.end, input.buffer);
         str = str.toUpperCase();
-        out.buffer.setBytes(id - input.start, str.getBytes(org.apache.drill.shaded.guava.com.google.common.base.Charsets.UTF_8));
+        out.buffer.setBytes(id - input.start, str.getBytes(com.google.common.base.Charsets.UTF_8));
       }
     }
   }
