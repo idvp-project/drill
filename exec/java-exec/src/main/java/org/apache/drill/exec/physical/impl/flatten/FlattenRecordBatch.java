@@ -39,6 +39,7 @@ import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.expr.ValueVectorReadExpression;
 import org.apache.drill.exec.expr.ValueVectorWriteExpression;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.physical.config.FlattenPOP;
@@ -53,8 +54,10 @@ import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
+import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 
 import com.carrotsearch.hppc.IntHashSet;
@@ -211,11 +214,13 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
 
     if (! (inVV instanceof RepeatedValueVector)) {
       if (incoming.getRecordCount() != 0) {
-        throw UserException.unsupportedError().message("Flatten does not support inputs of non-list values.").build(logger);
+        logger.warn("setFlattenVector cast failed and recordcount is not 0, create repeated value wrapper.");
+        vector = new RepeatedVectorWrapper(field, context.getAllocator(), inVV);
+      } else {
+        //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
+        logger.error("setFlattenVector cast failed and recordcount is 0, create empty vector anyway.");
+        vector = new RepeatedMapVector(field, oContext.getAllocator(), null);
       }
-      //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
-      logger.error("setFlattenVector cast failed and recordcount is 0, create empty vector anyway.");
-      vector = new RepeatedMapVector(field, oContext.getAllocator(), null);
     } else {
       vector = RepeatedValueVector.class.cast(inVV);
     }
@@ -370,12 +375,15 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       tp = ((RepeatedMapVector)flattenField).getTransferPairToSingleMap(reference.getAsNamePart().getName(), oContext.getAllocator());
     } else if ( !(flattenField instanceof RepeatedValueVector) ) {
       if(incoming.getRecordCount() != 0) {
-        throw UserException.unsupportedError().message("Flatten does not support inputs of non-list values.").build(logger);
+        logger.warn("Flatten does not support inputs of non-list values.", flattenField);
+        RepeatedVectorWrapper vv = new RepeatedVectorWrapper(flattenField.getField(), oContext.getAllocator(), flattenField);
+        tp = vv.getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
+      } else {
+        logger.error("Cannot cast {} to RepeatedValueVector", flattenField);
+        //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
+        final ValueVector vv = new RepeatedMapVector(flattenField.getField(), oContext.getAllocator(), null);
+        tp = RepeatedValueVector.class.cast(vv).getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
       }
-      logger.error("Cannot cast {} to RepeatedValueVector", flattenField);
-      //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
-      final ValueVector vv = new RepeatedMapVector(flattenField.getField(), oContext.getAllocator(), null);
-      tp = RepeatedValueVector.class.cast(vv).getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
     } else {
       final ValueVector vvIn = RepeatedValueVector.class.cast(flattenField).getDataVector();
       // vvIn may be null because of fast schema return for repeated list vectors
@@ -531,5 +539,80 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
   public void close() {
     updateStats();
     super.close();
+  }
+
+  //Note:
+  //wrapper for non-repeatable ValueVector
+  private final static class RepeatedVectorWrapper extends BaseRepeatedValueVector implements RepeatedValueVector {
+
+    private RepeatedVectorWrapper(MaterializedField field, BufferAllocator allocator, ValueVector vector) {
+      //todo: offsets?
+      super(field, allocator, vector);
+    }
+
+
+    @Override
+    public void allocateNew() throws OutOfMemoryException {
+      if (!allocateNewSafe()) {
+        throw new OutOfMemoryException();
+      }
+    }
+
+    @Override
+    public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+      return getDataVector().getTransferPair(ref, allocator);
+    }
+
+    @Override
+    public TransferPair makeTransferPair(ValueVector target) {
+      return getDataVector().makeTransferPair(target);
+    }
+
+    @Override
+    public RepeatedAccessor getAccessor() {
+      Accessor accessor = getDataVector().getAccessor();
+      return new BaseRepeatedAccessor() {
+
+        @Override
+        public int getInnerValueCountAt(int index) {
+          return 1;
+        }
+
+        @Override
+        public boolean isEmpty(int index) {
+          return false;
+        }
+
+        @Override
+        public Object getObject(int index) {
+          return accessor.getObject(index);
+        }
+
+        @Override
+        public int getValueCount() {
+          return this.getInnerValueCount();
+        }
+
+        @Override
+        public boolean isNull(int index) {
+          return accessor.isNull(index);
+        }
+      };
+    }
+
+    @Override
+    public RepeatedMutator getMutator() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FieldReader getReader() {
+      return getDataVector().getReader();
+    }
+
+    @Override
+    public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
+
+    }
   }
 }
