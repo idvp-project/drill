@@ -106,10 +106,13 @@ public class TestFastComplexSchema extends BaseTestQuery {
         .baselineValues("Nowmer")
         .build().run();
 
-    //result is not empty, and flatten got incompatible (non-list) incoming records. got exception thrown
-    errorMsgTestHelper("select flatten(first_name) from \n" +
-        "(select first_name from cp.`employee.json` where first_name='Sheri')",
-        "Flatten does not support inputs of non-list values");
+    //result is not empty, and flatten compatible with (non-list) incoming records
+    testBuilder().sqlQuery("select flatten(first_name) from \n" +
+        "(select first_name from cp.`employee.json` where first_name='Sheri')")
+        .unOrdered()
+        .baselineColumns("n")
+        .baselineValues("Sheri")
+        .build().run();
   }
 
 }
