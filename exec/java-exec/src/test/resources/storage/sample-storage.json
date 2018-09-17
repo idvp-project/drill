@@ -1,0 +1,15 @@
+{
+  "type": "file",
+  "connection": "classpath:///",
+  "config": null,
+  "workspaces": null,
+  "formats": {
+    "json": {
+      "type": "json",
+      "extensions": [
+        "json"
+      ]
+    }
+  },
+  "enabled": true
+}
