@@ -179,8 +179,10 @@ SqlNodeList ParseRequiredFieldList(String relType) :
 }
 
 /**
- * Parses a create view or replace existing view statement.
+ * Parses a create view/storage or replace existing view/storage statement.
+ * Merger in 1 method to avoid a LOOKAHEAD increment
  *   CREATE { [OR REPLACE] VIEW | VIEW [IF NOT EXISTS] | VIEW } view_name [ (field1, field2 ...) ] AS select_statement
+ *   CREATE { [OR REPLACE] STORAGE | STORAGE [IF NOT EXISTS] | STORAGE } storage_name using 'config'
  */
 SqlNode SqlCreateOrReplaceViewOrStorage() :
 {
@@ -340,6 +342,43 @@ SqlNode SqlDescribeSchema() :
    }
 }
 
+
+/**
+* Parses statement
+*   SHOW STORAGE name
+*/
+SqlNode SqlShowStorage() :
+{
+   SqlParserPos pos;
+   SqlIdentifier name;
+}
+{
+   <SHOW> { pos = getPos(); }
+   <STORAGE>
+   name = SimpleIdentifier()
+   {
+        return new SqlShowStorage(pos, name);
+   }
+}
+
+/**
+ * Parses a drop storage or drop storage if exists statement.
+ * DROP STORAGE [IF EXISTS] storage_name;
+ */
+SqlNode SqlDropStorage() :
+{
+    SqlParserPos pos;
+    boolean storageExistenceCheck = false;
+}
+{
+    <DROP> { pos = getPos(); }
+    <STORAGE>
+    [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
+    {
+        return new SqlDropStorage(pos, SimpleIdentifier(), storageExistenceCheck);
+    }
+}
+
 /**
 * Parse create UDF statement
 * CREATE FUNCTION USING JAR 'jar_name'
@@ -378,24 +417,6 @@ SqlNode SqlDropFunction() :
    {
        return new SqlDropFunction(pos, jar);
    }
-}
-
-/**
- * Parses a drop storage or drop storage if exists statement.
- * DROP STORAGE [IF EXISTS] storage_name;
- */
-SqlNode SqlDropStorage() :
-{
-    SqlParserPos pos;
-    boolean storageExistenceCheck = false;
-}
-{
-    <DROP> { pos = getPos(); }
-    <STORAGE>
-    [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
-    {
-        return new SqlDropStorage(pos, SimpleIdentifier(), storageExistenceCheck);
-    }
 }
 
 <#if !parser.includeCompoundIdentifier >
