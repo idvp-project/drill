@@ -10,19 +10,19 @@ import org.junit.experimental.categories.Category;
  * @since 17.09.18
  */
 @Category(SqlTest.class)
-public class TestCreateStorage extends PlanTestBase {
+public class TestCreatePlugin extends PlanTestBase {
 
   @Test
   public void testCreateSelectAndDrop() throws Exception {
     String config = BaseTestQuery.getFile("storage/sample-storage.json");
 
-    test("DROP STORAGE IF EXISTS sample");
+    test("DROP PLUGIN IF EXISTS sample");
 
     testBuilder()
-      .sqlQuery("CREATE STORAGE sample USING '%s'", config)
+      .sqlQuery("CREATE PLUGIN sample USING '%s'", config)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' created successfully.")
+      .baselineValues(true, "Plugin 'sample' created successfully.")
       .go();
 
     testBuilder()
@@ -33,10 +33,10 @@ public class TestCreateStorage extends PlanTestBase {
       .go();
 
     testBuilder()
-      .sqlQuery("DROP STORAGE sample", config)
+      .sqlQuery("DROP PLUGIN sample", config)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' deleted successfully.")
+      .baselineValues(true, "Plugin 'sample' deleted successfully.")
       .go();
 
     errorMsgTestHelper("SELECT * FROM sample.`storage/sample-data.json`",
@@ -47,86 +47,86 @@ public class TestCreateStorage extends PlanTestBase {
   public void testCreate() throws Exception {
     String config = BaseTestQuery.getFile("storage/sample-storage.json");
 
-    String query = String.format("CREATE STORAGE sample USING '%s'", config);
+    String query = String.format("CREATE PLUGIN sample USING '%s'", config);
 
-    test("DROP STORAGE IF EXISTS sample");
+    test("DROP PLUGIN IF EXISTS sample");
 
     testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' created successfully.")
+      .baselineValues(true, "Plugin 'sample' created successfully.")
       .go();
 
-    errorMsgTestHelper(query, "PLAN ERROR: A storage with given name [sample] already exists.");
+    errorMsgTestHelper(query, "PLAN ERROR: A plugin with given name [sample] already exists.");
 
     testBuilder()
-      .sqlQuery("CREATE STORAGE IF NOT EXISTS sample USING '%s'", config)
+      .sqlQuery("CREATE PLUGIN IF NOT EXISTS sample USING '%s'", config)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(false, "A storage with given name [sample] already exists.")
+      .baselineValues(false, "A plugin with given name [sample] already exists.")
       .go();
 
     testBuilder()
-      .sqlQuery("CREATE OR REPLACE STORAGE sample USING '%s'", config)
+      .sqlQuery("CREATE OR REPLACE PLUGIN sample USING '%s'", config)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' replaced successfully.")
+      .baselineValues(true, "Plugin 'sample' replaced successfully.")
       .go();
 
 
     testBuilder()
-      .sqlQuery("DROP STORAGE sample", config)
+      .sqlQuery("DROP PLUGIN sample", config)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' deleted successfully.")
+      .baselineValues(true, "Plugin 'sample' deleted successfully.")
       .go();
   }
 
   @Test
   public void testDrop() throws Exception {
-    test("DROP STORAGE IF EXISTS sample");
+    test("DROP PLUGIN IF EXISTS sample");
 
     testBuilder()
-      .sqlQuery("DROP STORAGE IF EXISTS sample")
+      .sqlQuery("DROP PLUGIN IF EXISTS sample")
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(false, "Storage [sample] not found.")
+      .baselineValues(false, "Plugin [sample] not found.")
       .go();
 
-    errorMsgTestHelper("DROP STORAGE sample", "PLAN ERROR: Storage [sample] not found.");
+    errorMsgTestHelper("DROP PLUGIN sample", "PLAN ERROR: Plugin [sample] not found.");
   }
 
   @Test
   public void testShow() throws Exception {
     String config = BaseTestQuery.getFile("storage/sample-storage.json");
 
-    String query = String.format("CREATE STORAGE sample USING '%s'", config);
+    String query = String.format("CREATE PLUGIN sample USING '%s'", config);
 
-    test("DROP STORAGE IF EXISTS sample");
+    test("DROP PLUGIN IF EXISTS sample");
 
     testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' created successfully.")
+      .baselineValues(true, "Plugin 'sample' created successfully.")
       .go();
 
     testBuilder()
-      .sqlQuery("SHOW STORAGE sample")
+      .sqlQuery("SHOW PLUGIN sample")
       .expectsNumRecords(1)
       .go();
 
     testBuilder()
-      .sqlQuery("DROP STORAGE sample", config)
+      .sqlQuery("DROP PLUGIN sample", config)
       .unOrdered()
       .baselineColumns("ok", "summary")
-      .baselineValues(true, "Storage 'sample' deleted successfully.")
+      .baselineValues(true, "Plugin 'sample' deleted successfully.")
       .go();
 
 
     testBuilder()
-      .sqlQuery("SHOW STORAGE sample")
+      .sqlQuery("SHOW PLUGIN sample")
       .unOrdered()
       .expectsEmptyResultSet()
       .go();

@@ -23,17 +23,17 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.planner.sql.DirectPlan;
-import org.apache.drill.exec.planner.sql.parser.SqlCreateStorage;
+import org.apache.drill.exec.planner.sql.parser.SqlCreatePlugin;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import java.io.IOException;
 
-public class CreateStorageHandler extends DefaultSqlHandler {
+public class CreatePluginHandler extends DefaultSqlHandler {
 
-  private static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CreateStorageHandler.class);
+  private static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CreatePluginHandler.class);
 
-  public CreateStorageHandler(SqlHandlerConfig config) {
+  public CreatePluginHandler(SqlHandlerConfig config) {
     super(config);
   }
 
@@ -44,7 +44,7 @@ public class CreateStorageHandler extends DefaultSqlHandler {
    */
   @Override
   public PhysicalPlan getPlan(SqlNode sqlNode) throws ForemanSetupException {
-    SqlCreateStorage node = unwrap(sqlNode, SqlCreateStorage.class);
+    SqlCreatePlugin node = unwrap(sqlNode, SqlCreatePlugin.class);
 
     StoragePlugin plugin = null;
     try {
@@ -54,15 +54,15 @@ public class CreateStorageHandler extends DefaultSqlHandler {
     }
 
     if (plugin != null) {
-      String message = String.format("A storage with given name [%s] already exists.", node.getName());
+      String message = String.format("A plugin with given name [%s] already exists.", node.getName());
 
-      if (node.getCreateStorageType() == SqlCreateStorage.SqlCreateStorageType.SIMPLE) {
+      if (node.getCreateStorageType() == SqlCreatePlugin.SqlCreateStorageType.SIMPLE) {
         throw UserException.planError()
           .message(message)
           .build(logger);
       }
 
-      if (node.getCreateStorageType() == SqlCreateStorage.SqlCreateStorageType.IF_NOT_EXISTS) {
+      if (node.getCreateStorageType() == SqlCreatePlugin.SqlCreateStorageType.IF_NOT_EXISTS) {
         return DirectPlan.createDirectPlan(context, false, message);
       }
     }
@@ -72,7 +72,7 @@ public class CreateStorageHandler extends DefaultSqlHandler {
       config = context.getLpPersistence().getMapper().readValue(node.getConfiguration(), StoragePluginConfig.class);
     } catch (IOException e) {
       throw UserException.planError(e)
-        .message("Failure while parsing storage configuration.")
+        .message("Failure while parsing plugin configuration.")
         .build(logger);
     }
 
@@ -80,12 +80,12 @@ public class CreateStorageHandler extends DefaultSqlHandler {
       context.getStorage().createOrUpdate(node.getName(), config, true);
     } catch (ExecutionSetupException e) {
       throw UserException.planError(e)
-        .message(String.format("Failure while storage [%s] initialization", node.getName()))
+        .message(String.format("Failure while plugin [%s] initialization", node.getName()))
         .build(logger);
     }
 
     boolean replaced = plugin != null;
     return DirectPlan.createDirectPlan(context, true,
-      String.format("Storage '%s' %s successfully.", node.getName(), replaced ? "replaced" : "created"));
+      String.format("Plugin '%s' %s successfully.", node.getName(), replaced ? "replaced" : "created"));
   }
 }

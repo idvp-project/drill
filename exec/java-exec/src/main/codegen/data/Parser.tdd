@@ -37,7 +37,7 @@
     "METADATA",
     "IF",
     "JAR",
-    "STORAGE"
+    "PLUGIN"
   ]
 
   # List of methods for parsing custom SQL statements.
@@ -47,10 +47,10 @@
     "SqlDescribeSchema()"
     "SqlDescribeTable()",
     "SqlUseSchema()",
-    "SqlCreateOrReplaceViewOrStorage()",
+    "SqlCreateOrReplaceViewOrPlugin()",
     "SqlDropView()",
-    "SqlShowStorage()",
-    "SqlDropStorage()",
+    "SqlShowPlugin()",
+    "SqlDropPlugin()",
     "SqlShowFiles()",
     "SqlCreateTable()",
     "SqlDropTable()",
