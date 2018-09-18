@@ -27,7 +27,7 @@ import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
-import org.apache.drill.exec.planner.sql.handlers.ShowStorageHandler;
+import org.apache.drill.exec.planner.sql.handlers.ShowPluginHandler;
 import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
 
 import java.util.Collections;
@@ -35,20 +35,20 @@ import java.util.List;
 
 /**
  * Sql parse tree node to represent statement:
- * SHOW STORAGE name
+ * SHOW PLUGIN name
  */
-public class SqlShowStorage extends DrillSqlCall {
+public class SqlShowPlugin extends DrillSqlCall {
 
   private final SqlIdentifier name;
 
-  public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("SHOW_STORAGE", SqlKind.OTHER) {
+  public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("SHOW_PLUGIN", SqlKind.OTHER) {
     @Override
     public SqlCall createCall(SqlLiteral functionQualifier, SqlParserPos pos, SqlNode... operands) {
-      return new SqlShowStorage(pos, (SqlIdentifier) operands[0]);
+      return new SqlShowPlugin(pos, (SqlIdentifier) operands[0]);
     }
   };
 
-  public SqlShowStorage(SqlParserPos pos, SqlIdentifier name) {
+  public SqlShowPlugin(SqlParserPos pos, SqlIdentifier name) {
     super(pos);
     this.name = name;
   }
@@ -66,7 +66,7 @@ public class SqlShowStorage extends DrillSqlCall {
   @Override
   public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
     writer.keyword("SHOW");
-    writer.keyword("STORAGE");
+    writer.keyword("PLUGIN");
     if (name != null) {
       name.unparse(writer, leftPrec, rightPrec);
     }
@@ -82,6 +82,6 @@ public class SqlShowStorage extends DrillSqlCall {
 
   @Override
   public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config) {
-    return new ShowStorageHandler(config);
+    return new ShowPluginHandler(config);
   }
 }

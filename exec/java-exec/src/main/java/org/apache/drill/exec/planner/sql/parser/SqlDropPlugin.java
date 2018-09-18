@@ -19,7 +19,6 @@ package org.apache.drill.exec.planner.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -29,33 +28,30 @@ import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
-import org.apache.drill.exec.planner.sql.handlers.CreateStorageHandler;
+import org.apache.drill.exec.planner.sql.handlers.DropPluginHandler;
 import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
 
 import java.util.List;
 
-/**
- * Sql parse tree node to represent statement:
- * CREATE ([OR REPLACE] STORAGE | STORAGE [IF NOT EXISTS]) USING 'config'
- */
-public class SqlCreateStorage extends DrillSqlCall {
-
-  private final SqlIdentifier storageName;
-  private final SqlLiteral createStorageType;
-  private final SqlNode configuration;
-
-  public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("CREATE_STORAGE", SqlKind.OTHER) {
+public class SqlDropPlugin extends DrillSqlCall {
+  public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("DROP_PLUGIN", SqlKind.OTHER) {
     @Override
     public SqlCall createCall(SqlLiteral functionQualifier, SqlParserPos pos, SqlNode... operands) {
-      return new SqlCreateStorage(pos, (SqlIdentifier) operands[0], (SqlLiteral) operands[1], operands[0]);
+      return new SqlDropPlugin(pos, (SqlIdentifier) operands[0], (SqlLiteral) operands[1]);
     }
   };
 
-  public SqlCreateStorage(SqlParserPos pos, SqlIdentifier storageName, SqlLiteral createStorageType, SqlNode configuration) {
+  private SqlIdentifier storageName;
+  private boolean storageExistenceCheck;
+
+  public SqlDropPlugin(SqlParserPos pos, SqlIdentifier storageName, SqlLiteral storageExistenceCheck) {
+    this(pos, storageName, storageExistenceCheck.booleanValue());
+  }
+
+  public SqlDropPlugin(SqlParserPos pos, SqlIdentifier storageName, boolean storageExistenceCheck) {
     super(pos);
     this.storageName = storageName;
-    this.createStorageType = createStorageType;
-    this.configuration = configuration;
+    this.storageExistenceCheck = storageExistenceCheck;
   }
 
   @Override
@@ -65,36 +61,28 @@ public class SqlCreateStorage extends DrillSqlCall {
 
   @Override
   public List<SqlNode> getOperandList() {
-    return ImmutableList.of(storageName, createStorageType, configuration);
+    final List<SqlNode> ops =
+        ImmutableList.of(
+                storageName,
+            SqlLiteral.createBoolean(storageExistenceCheck, SqlParserPos.ZERO)
+        );
+    return ops;
   }
 
   @Override
   public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-    writer.keyword("CREATE");
-    switch (SqlCreateStorageType.valueOf(createStorageType.toValue())) {
-      case SIMPLE:
-        writer.keyword("STORAGE");
-        break;
-      case OR_REPLACE:
-        writer.keyword("OR");
-        writer.keyword("REPLACE");
-        writer.keyword("STORAGE");
-        break;
-      case IF_NOT_EXISTS:
-        writer.keyword("STORAGE");
-        writer.keyword("IF");
-        writer.keyword("NOT");
-        writer.keyword("EXISTS");
-        break;
+    writer.keyword("DROP");
+    writer.keyword("PLUGIN");
+    if (storageExistenceCheck) {
+      writer.keyword("IF");
+      writer.keyword("EXISTS");
     }
     storageName.unparse(writer, leftPrec, rightPrec);
-    writer.keyword("USING");
-    configuration.unparse(writer, leftPrec, rightPrec);
   }
 
   @Override
   public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config) {
-    return new CreateStorageHandler(config);
+    return new DropPluginHandler(config);
   }
 
   public String getName() {
@@ -105,15 +93,7 @@ public class SqlCreateStorage extends DrillSqlCall {
     return storageName.names.get(storageName.names.size() - 1);
   }
 
-  public SqlCreateStorageType getCreateStorageType() {
-    return SqlCreateStorageType.valueOf(createStorageType.toValue());
-  }
-
-  public String getConfiguration() {
-    return ((SqlCharStringLiteral) configuration).toValue();
-  }
-
-  public enum SqlCreateStorageType {
-    SIMPLE, OR_REPLACE, IF_NOT_EXISTS
+  public boolean isStorageExistenceCheck() {
+    return storageExistenceCheck;
   }
 }

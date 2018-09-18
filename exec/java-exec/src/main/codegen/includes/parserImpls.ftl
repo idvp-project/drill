@@ -182,9 +182,9 @@ SqlNodeList ParseRequiredFieldList(String relType) :
  * Parses a create view/storage or replace existing view/storage statement.
  * Merger in 1 method to avoid a LOOKAHEAD increment
  *   CREATE { [OR REPLACE] VIEW | VIEW [IF NOT EXISTS] | VIEW } view_name [ (field1, field2 ...) ] AS select_statement
- *   CREATE { [OR REPLACE] STORAGE | STORAGE [IF NOT EXISTS] | STORAGE } storage_name using 'config'
+ *   CREATE { [OR REPLACE] PLUGIN | PLUGIN [IF NOT EXISTS] | PLUGIN } storage_name using 'config'
  */
-SqlNode SqlCreateOrReplaceViewOrStorage() :
+SqlNode SqlCreateOrReplaceViewOrPlugin() :
 {
     SqlParserPos pos;
     SqlIdentifier name;
@@ -214,7 +214,7 @@ SqlNode SqlCreateOrReplaceViewOrStorage() :
             return new SqlCreateView(pos, name, fieldList, query, SqlLiteral.createCharString(createType, getPos()));
         }
     |
-        <STORAGE>
+        <PLUGIN>
         [
             <IF> <NOT> <EXISTS> {
                 if (createType == "OR_REPLACE") {
@@ -227,7 +227,7 @@ SqlNode SqlCreateOrReplaceViewOrStorage() :
         <USING>
         configuration = StringLiteral()
         {
-            return new SqlCreateStorage(pos, name, SqlLiteral.createCharString(createType, getPos()), configuration);
+            return new SqlCreatePlugin(pos, name, SqlLiteral.createCharString(createType, getPos()), configuration);
         }
     )
 }
@@ -345,37 +345,37 @@ SqlNode SqlDescribeSchema() :
 
 /**
 * Parses statement
-*   SHOW STORAGE name
+*   SHOW PLUGIN name
 */
-SqlNode SqlShowStorage() :
+SqlNode SqlShowPlugin() :
 {
    SqlParserPos pos;
    SqlIdentifier name;
 }
 {
    <SHOW> { pos = getPos(); }
-   <STORAGE>
+   <PLUGIN>
    name = SimpleIdentifier()
    {
-        return new SqlShowStorage(pos, name);
+        return new SqlShowPlugin(pos, name);
    }
 }
 
 /**
  * Parses a drop storage or drop storage if exists statement.
- * DROP STORAGE [IF EXISTS] storage_name;
+ * DROP STORE [IF EXISTS] storage_name;
  */
-SqlNode SqlDropStorage() :
+SqlNode SqlDropPlugin() :
 {
     SqlParserPos pos;
     boolean storageExistenceCheck = false;
 }
 {
     <DROP> { pos = getPos(); }
-    <STORAGE>
+    <PLUGIN>
     [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
     {
-        return new SqlDropStorage(pos, SimpleIdentifier(), storageExistenceCheck);
+        return new SqlDropPlugin(pos, SimpleIdentifier(), storageExistenceCheck);
     }
 }
 

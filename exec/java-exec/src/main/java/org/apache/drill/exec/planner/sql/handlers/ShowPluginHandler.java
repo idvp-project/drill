@@ -19,24 +19,25 @@ package org.apache.drill.exec.planner.sql.handlers;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.planner.sql.DirectPlan;
-import org.apache.drill.exec.planner.sql.parser.SqlDropStorage;
+import org.apache.drill.exec.planner.sql.parser.SqlShowPlugin;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
-public class DropStorageHandler extends DefaultSqlHandler {
+import java.io.IOException;
+import java.util.Collections;
 
-  private static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DropStorageHandler.class);
+public class ShowPluginHandler extends DefaultSqlHandler {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ShowTablesHandler.class);
 
-  public DropStorageHandler(SqlHandlerConfig config) {
+  public ShowPluginHandler(SqlHandlerConfig config) {
     super(config);
   }
 
   @Override
-  public PhysicalPlan getPlan(SqlNode sqlNode) throws ForemanSetupException {
-    SqlDropStorage node = unwrap(sqlNode, SqlDropStorage.class);
+  public PhysicalPlan getPlan(SqlNode sqlNode) throws IOException, ForemanSetupException {
+    SqlShowPlugin node = unwrap(sqlNode, SqlShowPlugin.class);
 
     StoragePlugin plugin = null;
     try {
@@ -46,18 +47,20 @@ public class DropStorageHandler extends DefaultSqlHandler {
     }
 
     if (plugin == null) {
-      if (node.isStorageExistenceCheck()) {
-        return DirectPlan.createDirectPlan(context, false, String.format("Storage [%s] not found.", node.getName()));
-      } else {
-        throw UserException.planError()
-          .message(String.format("Storage [%s] not found.", node.getName()))
-          .build(logger);
-      }
+      return DirectPlan.createDirectPlan(context.getCurrentEndpoint(), Collections.emptyList(), CommandResult.class);
     }
 
-    context.getStorage().deletePlugin(node.getName());
+    CommandResult result = new CommandResult();
+    result.name = node.getName();
+    result.enabled = plugin.getConfig().isEnabled();
+    result.configuration = context.getLpPersistence().getMapper().writeValueAsString(plugin.getConfig());
 
-    return DirectPlan.createDirectPlan(context, true,
-      String.format("Storage '%s' deleted successfully.", node.getName()));
+    return DirectPlan.createDirectPlan(context.getCurrentEndpoint(), Collections.singletonList(result), CommandResult.class);
+  }
+
+  public static class CommandResult {
+    public String name;
+    public boolean enabled;
+    public String configuration;
   }
 }
