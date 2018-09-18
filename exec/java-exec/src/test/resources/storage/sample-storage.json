@@ -6,9 +6,7 @@
   "formats": {
     "json": {
       "type": "json",
-      "extensions": [
-        "json"
-      ]
+      "extensions": [ "json" ]
     }
   },
   "enabled": true

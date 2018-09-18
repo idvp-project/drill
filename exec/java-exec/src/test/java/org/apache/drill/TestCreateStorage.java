@@ -16,6 +16,8 @@ public class TestCreateStorage extends PlanTestBase {
   public void testCreateSelectAndDrop() throws Exception {
     String config = BaseTestQuery.getFile("storage/sample-storage.json");
 
+    test("DROP STORAGE IF EXISTS sample");
+
     testBuilder()
       .sqlQuery("CREATE STORAGE sample USING '%s'", config)
       .unOrdered()
@@ -47,6 +49,8 @@ public class TestCreateStorage extends PlanTestBase {
 
     String query = String.format("CREATE STORAGE sample USING '%s'", config);
 
+    test("DROP STORAGE IF EXISTS sample");
+
     testBuilder()
       .sqlQuery(query)
       .unOrdered()
@@ -69,10 +73,20 @@ public class TestCreateStorage extends PlanTestBase {
       .baselineColumns("ok", "summary")
       .baselineValues(true, "Storage 'sample' replaced successfully.")
       .go();
+
+
+    testBuilder()
+      .sqlQuery("DROP STORAGE sample", config)
+      .unOrdered()
+      .baselineColumns("ok", "summary")
+      .baselineValues(true, "Storage 'sample' deleted successfully.")
+      .go();
   }
 
   @Test
   public void testDrop() throws Exception {
+    test("DROP STORAGE IF EXISTS sample");
+
     testBuilder()
       .sqlQuery("DROP STORAGE IF EXISTS sample")
       .unOrdered()
@@ -81,5 +95,40 @@ public class TestCreateStorage extends PlanTestBase {
       .go();
 
     errorMsgTestHelper("DROP STORAGE sample", "PLAN ERROR: Storage [sample] not found.");
+  }
+
+  @Test
+  public void testShow() throws Exception {
+    String config = BaseTestQuery.getFile("storage/sample-storage.json");
+
+    String query = String.format("CREATE STORAGE sample USING '%s'", config);
+
+    test("DROP STORAGE IF EXISTS sample");
+
+    testBuilder()
+      .sqlQuery(query)
+      .unOrdered()
+      .baselineColumns("ok", "summary")
+      .baselineValues(true, "Storage 'sample' created successfully.")
+      .go();
+
+    testBuilder()
+      .sqlQuery("SHOW STORAGE sample")
+      .expectsNumRecords(1)
+      .go();
+
+    testBuilder()
+      .sqlQuery("DROP STORAGE sample", config)
+      .unOrdered()
+      .baselineColumns("ok", "summary")
+      .baselineValues(true, "Storage 'sample' deleted successfully.")
+      .go();
+
+
+    testBuilder()
+      .sqlQuery("SHOW STORAGE sample")
+      .unOrdered()
+      .expectsEmptyResultSet()
+      .go();
   }
 }
