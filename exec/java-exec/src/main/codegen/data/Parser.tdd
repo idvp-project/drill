@@ -45,7 +45,7 @@
     "SAMPLE",
     "COLUMNS",
     "REMOVE"
-    "STORAGE"
+    "PLUGIN"
   ]
 
   # List of methods for parsing custom SQL statements.

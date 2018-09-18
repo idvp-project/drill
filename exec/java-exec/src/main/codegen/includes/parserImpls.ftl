@@ -241,7 +241,7 @@ SqlNode SqlCreateOrReplace() :
                 if (isTemporary) {
                     throw new ParseException("Create storage statement does not allow <TEMPORARY> keyword.");
                 }
-                return SqlCreateStorage(pos, createType);
+                return SqlCreatePlugin(pos, createType);
             }
     )
 }
@@ -385,7 +385,7 @@ SqlNode SqlCreateSchema(SqlParserPos pos, String createType) :
 *
 * CREATE { [OR REPLACE] PLUGIN | PLUGIN [IF NOT EXISTS] | PLUGIN } storage_name USING 'json convfig'
 */
-SqlNode SqlCreateStorage(SqlParserPos pos, String createType) :
+SqlNode SqlCreatePlugin(SqlParserPos pos, String createType) :
 {
     SqlIdentifier name;
     SqlNode configuration;
