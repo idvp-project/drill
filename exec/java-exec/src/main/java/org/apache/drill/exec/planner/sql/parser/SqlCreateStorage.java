@@ -34,6 +34,10 @@ import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
 
 import java.util.List;
 
+/**
+ * Sql parse tree node to represent statement:
+ * CREATE ([OR REPLACE] STORAGE | STORAGE [IF NOT EXISTS]) USING 'config'
+ */
 public class SqlCreateStorage extends DrillSqlCall {
 
   private final SqlIdentifier storageName;

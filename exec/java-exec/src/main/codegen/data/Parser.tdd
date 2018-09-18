@@ -49,6 +49,7 @@
     "SqlUseSchema()",
     "SqlCreateOrReplaceViewOrStorage()",
     "SqlDropView()",
+    "SqlShowStorage()",
     "SqlDropStorage()",
     "SqlShowFiles()",
     "SqlCreateTable()",
