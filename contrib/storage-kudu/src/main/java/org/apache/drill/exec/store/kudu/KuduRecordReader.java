@@ -54,15 +54,16 @@ import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
+import org.apache.kudu.client.AsyncKuduScanner;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduScanner.KuduScannerBuilder;
+import org.apache.kudu.client.KuduScannerIterator;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
-import org.apache.kudu.client.RowResultIterator;
-import org.apache.kudu.client.shaded.com.google.common.collect.ImmutableMap;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class KuduRecordReader extends AbstractRecordReader {
@@ -72,8 +73,7 @@ public class KuduRecordReader extends AbstractRecordReader {
 
   private final KuduClient client;
   private final KuduSubScanSpec scanSpec;
-  private KuduScanner scanner;
-  private RowResultIterator iterator;
+  private KuduScannerIterator iterator;
 
   private OutputMutator output;
   private OperatorContext context;
@@ -114,10 +114,13 @@ public class KuduRecordReader extends AbstractRecordReader {
 
       context.getStats().startWait();
       try {
-        scanner = builder
-            .lowerBoundRaw(scanSpec.getStartKey())
-            .exclusiveUpperBoundRaw(scanSpec.getEndKey())
-            .build();
+        KuduScanner scanner = builder
+                .lowerBoundRaw(scanSpec.getStartKey())
+                .exclusiveUpperBoundRaw(scanSpec.getEndKey())
+                .readMode(AsyncKuduScanner.ReadMode.READ_AT_SNAPSHOT)
+                .setFaultTolerant(true)
+                .build();
+        iterator = scanner.iterator();
       } finally {
         context.getStats().stopWait();
       }
@@ -147,28 +150,27 @@ public class KuduRecordReader extends AbstractRecordReader {
   public int next() {
     int rowCount = 0;
     try {
-      while (iterator == null || !iterator.hasNext()) {
-        if (!scanner.hasMoreRows()) {
-          iterator = null;
-          return 0;
-        }
-        context.getStats().startWait();
-        try {
-          iterator = scanner.nextRows();
-        } finally {
-          context.getStats().stopWait();
-        }
-      }
-      for (; rowCount < TARGET_RECORD_COUNT && iterator.hasNext(); rowCount++) {
+      for (; rowCount < TARGET_RECORD_COUNT && readNext(); rowCount++) {
         addRowResult(iterator.next(), rowCount);
       }
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-    for (ProjectedColumnInfo pci : projectedCols) {
-      pci.vv.getMutator().setValueCount(rowCount);
+    if (rowCount > 0) {
+      for (ProjectedColumnInfo pci : projectedCols) {
+        pci.vv.getMutator().setValueCount(rowCount);
+      }
     }
     return rowCount;
+  }
+
+  private boolean readNext() {
+    context.getStats().startWait();
+    try {
+      return iterator.hasNext();
+    } finally {
+      context.getStats().stopWait();
+    }
   }
 
   private void initCols(Schema schema) throws SchemaChangeException {
