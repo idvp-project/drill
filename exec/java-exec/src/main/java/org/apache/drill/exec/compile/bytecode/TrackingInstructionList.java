@@ -20,20 +20,19 @@ package org.apache.drill.exec.compile.bytecode;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
 
 public class TrackingInstructionList extends InsnList {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TrackingInstructionList.class);
 
-  Frame<BasicValue> currentFrame;
-  Frame<BasicValue> nextFrame;
+  Frame<?> currentFrame;
+  Frame<?> nextFrame;
   AbstractInsnNode currentInsn;
   private int index = 0;
-  private final Frame<BasicValue>[] frames;
+  private final Frame<?>[] frames;
   private final InsnList inner;
 
-  public TrackingInstructionList(final Frame<BasicValue>[] frames, final InsnList inner) {
+  public TrackingInstructionList(final Frame<?>[] frames, final InsnList inner) {
     this.frames = frames;
     this.inner = inner;
   }

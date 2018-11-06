@@ -66,17 +66,18 @@ public class MethodAnalyzer<V extends Value> extends Analyzer <V> {
     @Override
     public void setLocal(final int i, final V value) {
       /*
-       * If we're replacing one ReplacingBasicValue with another, we need to
+       * If we're replacing one ReplacingValue with another, we need to
        * associate them together so that they will have the same replacability
        * attributes. We also track the local slot the new value will be stored in.
        */
-      if (value instanceof ReplacingBasicValue) {
-        final ReplacingBasicValue replacingValue = (ReplacingBasicValue) value;
+      if (value instanceof ReplacingValue) {
+        final ReplacingValue replacingValue = (ReplacingValue) value;
         replacingValue.setFrameSlot(i);
         final V localValue = getLocal(i);
-        if ((localValue != null) && (localValue instanceof ReplacingBasicValue)) {
-          final ReplacingBasicValue localReplacingValue = (ReplacingBasicValue) localValue;
+        if ((localValue != null) && (localValue instanceof ReplacingValue)) {
+          final ReplacingValue localReplacingValue = (ReplacingValue) localValue;
           localReplacingValue.associate(replacingValue);
+          return;
         }
       }
 

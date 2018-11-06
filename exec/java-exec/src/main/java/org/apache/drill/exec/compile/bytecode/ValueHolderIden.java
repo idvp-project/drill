@@ -181,7 +181,7 @@ class ValueHolderIden {
   }
 
   public class ValueHolderSub {
-    private int first; // TODO: deal with transfer() so this can be made final
+    private int first;
 
     @Override
     public String toString() {
@@ -238,8 +238,6 @@ class ValueHolderIden {
         mv.directVarInsn(types[i].getOpcode(Opcodes.ILOAD), first + offsets[i]);
         mv.directVarInsn(types[i].getOpcode(Opcodes.ISTORE), newStart + offsets[i]);
       }
-
-      this.first = newStart;
     }
 
     private void addKnownInsn(String name, InstructionModifier mv, int analogOpcode) {

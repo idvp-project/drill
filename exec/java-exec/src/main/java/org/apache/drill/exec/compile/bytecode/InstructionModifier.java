@@ -25,7 +25,6 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
 
 import com.carrotsearch.hppc.IntIntHashMap;
@@ -33,6 +32,7 @@ import com.carrotsearch.hppc.IntObjectHashMap;
 import com.carrotsearch.hppc.cursors.IntIntCursor;
 import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.objectweb.asm.tree.analysis.Value;
 
 public class InstructionModifier extends MethodVisitor {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(InstructionModifier.class);
@@ -66,9 +66,9 @@ public class InstructionModifier extends MethodVisitor {
     return lastLineNumber;
   }
 
-  private static ReplacingBasicValue filterReplacement(final BasicValue basicValue) {
-    if (basicValue instanceof ReplacingBasicValue) {
-      final ReplacingBasicValue replacingValue = (ReplacingBasicValue) basicValue;
+  private static ReplacingValue filterReplacement(final Value value) {
+    if (value instanceof ReplacingValue) {
+      final ReplacingValue replacingValue = (ReplacingValue) value;
       if (replacingValue.isReplaceable()) {
         return replacingValue;
       }
@@ -77,9 +77,9 @@ public class InstructionModifier extends MethodVisitor {
     return null;
   }
 
-  private ReplacingBasicValue getLocal(final int var) {
-    final BasicValue basicValue = list.currentFrame.getLocal(var);
-    return filterReplacement(basicValue);
+  private ReplacingValue getLocal(final int var) {
+    final Value value = list.currentFrame.getLocal(var);
+    return filterReplacement(value);
   }
 
   /**
@@ -89,23 +89,23 @@ public class InstructionModifier extends MethodVisitor {
    *   first element down, etc
    * @return the value on the stack, or null if it isn't a ReplacingBasciValue
    */
-  private ReplacingBasicValue peekFromTop(final int depth) {
+  private ReplacingValue peekFromTop(final int depth) {
     Preconditions.checkArgument(depth >= 0);
-    final Frame<BasicValue> frame = list.currentFrame;
-    final BasicValue basicValue = frame.getStack((frame.getStackSize() - 1) - depth);
+    final Frame<?> frame = list.currentFrame;
+    final Value basicValue = frame.getStack((frame.getStackSize() - 1) - depth);
     return filterReplacement(basicValue);
   }
 
   /**
-   * Get the value of a function return if it is a ReplacingBasicValue.
+   * Get the value of a function return if it is a ReplacingValue.
    *
    * <p>Assumes that we're in the middle of processing an INVOKExxx instruction.
    *
    * @return the value that will be on the top of the stack after the function returns
    */
-  private ReplacingBasicValue getFunctionReturn() {
-    final Frame<BasicValue> nextFrame = list.nextFrame;
-    final BasicValue basicValue = nextFrame.getStack(nextFrame.getStackSize() - 1);
+  private ReplacingValue getFunctionReturn() {
+    final Frame<?> nextFrame = list.nextFrame;
+    final Value basicValue = nextFrame.getStack(nextFrame.getStackSize() - 1);
     return filterReplacement(basicValue);
   }
 
@@ -240,7 +240,7 @@ public class InstructionModifier extends MethodVisitor {
        * If we're replacing the holder under the value being duplicated, then we don't need to put the
        * DUPed value back under it, because it won't be present in the stack. We can just use a plain DUP.
        */
-      final ReplacingBasicValue rbValue = peekFromTop(1);
+      final ReplacingValue rbValue = peekFromTop(1);
       if (rbValue != null) {
         super.visitInsn(Opcodes.DUP);
         return;
@@ -256,7 +256,7 @@ public class InstructionModifier extends MethodVisitor {
       if (peekFromTop(0) != null) {
         throw new IllegalStateException("top of stack should be 2nd part of a long or double");
       }
-      final ReplacingBasicValue rbValue = peekFromTop(2);
+      final ReplacingValue rbValue = peekFromTop(2);
       if (rbValue != null) {
         super.visitInsn(Opcodes.DUP2);
         return;
@@ -279,7 +279,7 @@ public class InstructionModifier extends MethodVisitor {
      * replaced the values for those, but we might find other reasons to replace
      * things, in which case this will be too broad.
      */
-    final ReplacingBasicValue r = getFunctionReturn();
+    final ReplacingValue r = getFunctionReturn();
     if (r != null) {
       final ValueHolderSub sub = r.getIden().getHolderSub(adder);
       oldToNew.put(r.getIndex(), sub);
@@ -296,11 +296,11 @@ public class InstructionModifier extends MethodVisitor {
 
   @Override
   public void visitVarInsn(final int opcode, final int var) {
-    ReplacingBasicValue v;
+    ReplacingValue v;
     if (opcode == Opcodes.ASTORE && (v = peekFromTop(0)) != null) {
       final ValueHolderSub from = oldToNew.get(v.getIndex());
 
-      final ReplacingBasicValue current = getLocal(var);
+      final ReplacingValue current = getLocal(var);
       // if local var is set, then transfer to it to the existing holders in the local position.
       if (current != null) {
         final ValueHolderSub newSub = oldToNew.get(current.getIndex());
@@ -348,7 +348,7 @@ public class InstructionModifier extends MethodVisitor {
   public void visitFieldInsn(final int opcode, final String owner,
       final String name, final String desc) {
     int stackDepth = 0;
-    ReplacingBasicValue value;
+    ReplacingValue value;
     switch (opcode) {
     case Opcodes.PUTFIELD:
       value = peekFromTop(stackDepth++);
@@ -408,7 +408,7 @@ public class InstructionModifier extends MethodVisitor {
 
     final int argCount = Type.getArgumentTypes(desc).length;
     if (opcode != Opcodes.INVOKESTATIC) {
-      final ReplacingBasicValue thisRef = peekFromTop(argCount);
+      final ReplacingValue thisRef = peekFromTop(argCount);
 
       if (thisRef != null) {
         /*
@@ -434,7 +434,7 @@ public class InstructionModifier extends MethodVisitor {
      *
      * Does the function being called return a holder?
      */
-    final ReplacingBasicValue functionReturn = getFunctionReturn();
+    final ReplacingValue functionReturn = getFunctionReturn();
     if (functionReturn != null) {
       /*
        * The return of this method is an actual instance of the object we're escaping.
@@ -450,7 +450,7 @@ public class InstructionModifier extends MethodVisitor {
      * maintained; we use the locals instead. Therefore, complain if any arguments are holders.
      */
     for(int argDepth = argCount - 1; argDepth >= 0; --argDepth) {
-      final ReplacingBasicValue argValue = peekFromTop(argDepth);
+      final ReplacingValue argValue = peekFromTop(argDepth);
       if (argValue != null) {
         throw new IllegalStateException(
             String.format("Holder types are not allowed to be passed between methods. " +

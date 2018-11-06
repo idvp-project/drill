@@ -20,10 +20,10 @@ package org.apache.drill.exec.compile.bytecode;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.drill.exec.util.AssertionUtil;
-import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.analysis.BasicValue;
+import org.objectweb.asm.tree.analysis.Value;
 
 /**
  * BasicValue with additional tracking information used to determine
@@ -35,9 +35,15 @@ import org.objectweb.asm.tree.analysis.BasicValue;
  * flags indicate how the value/variable was used, and that in turn indicates whether
  * or not we can replace it.
  */
-public class ReplacingBasicValue extends BasicValue {
+public class ReplacingValue implements Value {
   private final ValueHolderIden iden; // identity of the holder this value represents
   private final int index; // the original local variable slot this value/holder was assigned
+  private final TypedValue typedValue;
+
+  @Override
+  public int getSize() {
+    return typedValue.getSize();
+  }
 
   /**
    * The set of flags associated with this value.
@@ -127,7 +133,7 @@ public class ReplacingBasicValue extends BasicValue {
 
   private FlagSet flagSet;
   /**
-   * map of ReplacingBasicValue -> null; we need an IdentityHashSet, but there's no such thing;
+   * map of ReplacingValue -> null; we need an IdentityHashSet, but there's no such thing;
    * we just always set the value in the map to be null, and only care about the keys.
    * Another solution might have been to define equals() and hashCode(), as apparently they are
    * defined by BasicValue, but it's not clear what to do with some of the additional members here.
@@ -136,22 +142,24 @@ public class ReplacingBasicValue extends BasicValue {
    *
    * This value is null until we have our first associate, at which point this is allocated on demand.
    */
-  private IdentityHashMap<ReplacingBasicValue, ReplacingBasicValue> associates = null;
+  private IdentityHashMap<ReplacingValue, ReplacingValue> associates = null;
   // TODO remove?
   private HashSet<Integer> frameSlots = null; // slots in stack frame this has been assigned to
 
   /**
    * Create a new value representing a holder (boxed value).
    *
-   * @param type the type of the holder
+   * @param typedValue the type of the holder
    * @param iden the ValueHolderIden for the holder
    * @param index the original local variable slot assigned to the value
    * @param valueList TODO
    * @return
    */
-  public static ReplacingBasicValue create(final Type type, final ValueHolderIden iden, final int index,
-      final List<ReplacingBasicValue> valueList) {
-    final ReplacingBasicValue replacingValue = new ReplacingBasicValue(type, iden, index);
+  public static ReplacingValue create(final TypedValue typedValue,
+                                      final ValueHolderIden iden,
+                                      final int index,
+                                      final List<ReplacingValue> valueList) {
+    final ReplacingValue replacingValue = new ReplacingValue(typedValue, iden, index);
     valueList.add(replacingValue);
     return replacingValue;
   }
@@ -195,7 +203,7 @@ public class ReplacingBasicValue extends BasicValue {
     if (associates != null) {
       indent(sb, indentLevel);
       sb.append("associates(index)");
-      for(ReplacingBasicValue value : associates.keySet()) {
+      for(ReplacingValue value : associates.keySet()) {
         sb.append(' ');
         sb.append(value.index);
       }
@@ -203,8 +211,8 @@ public class ReplacingBasicValue extends BasicValue {
     }
   }
 
-  private ReplacingBasicValue(final Type type, final ValueHolderIden iden, final int index) {
-    super(type);
+  private ReplacingValue(final TypedValue typedValue, final ValueHolderIden iden, final int index) {
+    this.typedValue = typedValue;
     this.iden = iden;
     this.index = index;
     flagSet = new FlagSet();
@@ -217,6 +225,11 @@ public class ReplacingBasicValue extends BasicValue {
    */
   public boolean isReplaceable() {
     return flagSet.isReplaceable();
+  }
+
+
+  public TypedValue getTypedValue() {
+    return typedValue;
   }
 
   private void dumpFrameSlots(final StringBuilder sb) {
@@ -240,12 +253,12 @@ public class ReplacingBasicValue extends BasicValue {
   }
 
   /**
-   * Add another ReplacingBasicValue with no associates to this value's set of
+   * Add another ReplacingValue with no associates to this value's set of
    * associates.
    *
    * @param other the other value
    */
-  private void addOther(final ReplacingBasicValue other) {
+  private void addOther(final ReplacingValue other) {
     assert other.associates == null;
     associates.put(other, null);
     other.associates = associates;
@@ -264,7 +277,7 @@ public class ReplacingBasicValue extends BasicValue {
    *
    * @param other the other value
    */
-  public void associate(final ReplacingBasicValue other) {
+  public void associate(final ReplacingValue other) {
     associate0(other);
 
     if (AssertionUtil.ASSERT_ENABLED) {
@@ -274,7 +287,7 @@ public class ReplacingBasicValue extends BasicValue {
       assert associates.containsKey(other);
 
       // check all the other values as well
-      for(ReplacingBasicValue value : associates.keySet()) {
+      for(ReplacingValue value : associates.keySet()) {
         assert associates.get(value) == null; // we never use the value
         assert value.associates == associates;
         assert value.flagSet == flagSet;
@@ -286,7 +299,7 @@ public class ReplacingBasicValue extends BasicValue {
    * Does the real work of associate(), which is a convenient place to
    * check all the assertions after this work is done.
    */
-  private void associate0(final ReplacingBasicValue other) {
+  private void associate0(final ReplacingValue other) {
     // if it's the same value, there's nothing to do
     if (this == other) {
       return;
@@ -317,14 +330,14 @@ public class ReplacingBasicValue extends BasicValue {
     }
 
     // this and other both have disjoint associates; we need to merge them
-    IdentityHashMap<ReplacingBasicValue, ReplacingBasicValue> largerSet = associates;
+    IdentityHashMap<ReplacingValue, ReplacingValue> largerSet = associates;
     FlagSet largerFlags = flagSet;
-    IdentityHashMap<ReplacingBasicValue, ReplacingBasicValue> smallerSet = other.associates;
+    IdentityHashMap<ReplacingValue, ReplacingValue> smallerSet = other.associates;
     FlagSet smallerFlags = other.flagSet;
 
     // if necessary, swap them, so the larger/smaller labels are correct
     if (largerSet.size() < smallerSet.size()) {
-      final IdentityHashMap<ReplacingBasicValue, ReplacingBasicValue> tempSet = largerSet;
+      final IdentityHashMap<ReplacingValue, ReplacingValue> tempSet = largerSet;
       largerSet = smallerSet;
       smallerSet = tempSet;
       final FlagSet tempFlags = largerFlags;
@@ -335,7 +348,7 @@ public class ReplacingBasicValue extends BasicValue {
     largerFlags.mergeFrom(smallerFlags);
 
     final int largerSize = largerSet.size();
-    for(ReplacingBasicValue value : smallerSet.keySet()) {
+    for(ReplacingValue value : smallerSet.keySet()) {
       value.flagSet = largerFlags;
       value.associates = largerSet;
       largerSet.put(value, null);
@@ -437,5 +450,18 @@ public class ReplacingBasicValue extends BasicValue {
    */
   public boolean isThis() {
     return flagSet.isThis;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ReplacingValue that = (ReplacingValue) o;
+    return Objects.equals(typedValue, that.typedValue);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(typedValue);
   }
 }

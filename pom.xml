@@ -734,6 +734,8 @@
               -Djava.net.preferIPv4Stack=true
               -Djava.awt.headless=true
               -XX:+CMSClassUnloadingEnabled -ea
+              -Duser.language=en -Duser.country=US
+              -Djdk.net.URLClassPath.disableClassPathURLCheck=true
             </argLine>
             <forkCount>${forkCount}</forkCount>
             <reuseForks>true</reuseForks>

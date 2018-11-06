@@ -24,8 +24,8 @@ import org.apache.drill.exec.compile.CompilationConfig;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
-import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
+import org.objectweb.asm.tree.analysis.Value;
 
 public class ScalarReplacementNode extends MethodNode {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScalarReplacementNode.class);
@@ -54,10 +54,10 @@ public class ScalarReplacementNode extends MethodNode {
      */
     super.visitEnd();
 
-    final LinkedList<ReplacingBasicValue> valueList = new LinkedList<>();
-    final MethodAnalyzer<BasicValue> analyzer =
-        new MethodAnalyzer<BasicValue>(new ReplacingInterpreter(className, valueList));
-    Frame<BasicValue>[] frames;
+    final LinkedList<ReplacingValue> valueList = new LinkedList<>();
+    final MethodAnalyzer<Value> analyzer =
+        new MethodAnalyzer<Value>(new ReplacingInterpreter(className, valueList));
+    Frame<Value>[] frames;
     try {
       frames = analyzer.analyze(className, this);
     } catch (final AnalyzerException e) {
@@ -66,8 +66,8 @@ public class ScalarReplacementNode extends MethodNode {
 
     if (logger.isTraceEnabled()) {
       final StringBuilder sb = new StringBuilder();
-      sb.append("ReplacingBasicValues for " + className + "\n");
-      for(final ReplacingBasicValue value : valueList) {
+      sb.append("ReplacingBasicValues for ").append(className).append("\n");
+      for(final ReplacingValue value : valueList) {
         value.dump(sb, 2);
         sb.append('\n');
       }
