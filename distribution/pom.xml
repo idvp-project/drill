@@ -23,7 +23,7 @@
   <parent>
     <artifactId>drill-root</artifactId>
     <groupId>org.apache.drill</groupId>
-    <version>1.14.0-0.4.0</version>
+    <version>1.14.0-0.4.1-SNAPSHOT</version>
   </parent>
 
   <artifactId>distribution</artifactId>
@@ -192,7 +192,12 @@
           </excludes>
         </configuration>
       </plugin>
-
+      <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <profiles>
