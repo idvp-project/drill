@@ -34,7 +34,7 @@ public enum CoreOperatorType implements com.dyuproject.protostuff.EnumLite<CoreO
     ORDERED_PARTITION_SENDER(9),
     PROJECT(10),
     UNORDERED_RECEIVER(11),
-    RANGE_SENDER(12),
+    RANGE_PARTITION_SENDER(12),
     SCREEN(13),
     SELECTION_VECTOR_REMOVER(14),
     STREAMING_AGGREGATE(15),
@@ -75,7 +75,11 @@ public enum CoreOperatorType implements com.dyuproject.protostuff.EnumLite<CoreO
     JSON_WRITER(50),
     HTPPD_LOG_SUB_SCAN(51),
     IMAGE_SUB_SCAN(52),
-    SEQUENCE_SUB_SCAN(53);
+    SEQUENCE_SUB_SCAN(53),
+    PARTITION_LIMIT(54),
+    PCAPNG_SUB_SCAN(55),
+    RUNTIME_FILTER(56),
+    ROWKEY_JOIN(57);
     
     public final int number;
     
@@ -105,7 +109,7 @@ public enum CoreOperatorType implements com.dyuproject.protostuff.EnumLite<CoreO
             case 9: return ORDERED_PARTITION_SENDER;
             case 10: return PROJECT;
             case 11: return UNORDERED_RECEIVER;
-            case 12: return RANGE_SENDER;
+            case 12: return RANGE_PARTITION_SENDER;
             case 13: return SCREEN;
             case 14: return SELECTION_VECTOR_REMOVER;
             case 15: return STREAMING_AGGREGATE;
@@ -147,6 +151,10 @@ public enum CoreOperatorType implements com.dyuproject.protostuff.EnumLite<CoreO
             case 51: return HTPPD_LOG_SUB_SCAN;
             case 52: return IMAGE_SUB_SCAN;
             case 53: return SEQUENCE_SUB_SCAN;
+            case 54: return PARTITION_LIMIT;
+            case 55: return PCAPNG_SUB_SCAN;
+            case 56: return RUNTIME_FILTER;
+            case 57: return ROWKEY_JOIN;
             default: return null;
         }
     }

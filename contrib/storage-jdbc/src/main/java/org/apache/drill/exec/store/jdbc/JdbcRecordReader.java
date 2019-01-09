@@ -57,9 +57,9 @@ import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.NullableVarDecimalVector;
 import org.apache.drill.exec.vector.ValueVector;
 
-import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 
 @SuppressWarnings("unchecked")
 class JdbcRecordReader extends AbstractRecordReader {
@@ -279,6 +279,13 @@ class JdbcRecordReader extends AbstractRecordReader {
     AutoCloseables.close(resultSet, statement, connection);
   }
 
+  @Override
+  public String toString() {
+    return "JdbcRecordReader[sql=" + sql
+        + ", Plugin=" + storagePluginName
+        + "]";
+  }
+
   private abstract class Copier<T extends ValueVector.Mutator> {
     protected final int columnIndex;
     protected final ResultSet result;
@@ -478,5 +485,4 @@ class JdbcRecordReader extends AbstractRecordReader {
     }
 
   }
-
 }

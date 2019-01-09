@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.expr.fn;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.drill.shaded.guava.com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.FieldReference;
@@ -31,8 +31,8 @@ import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate.NullHandling;
 import org.apache.drill.exec.record.TypedFieldId;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.base.Strings;
 import com.sun.codemodel.JBlock;
 import com.sun.codemodel.JClass;
 import com.sun.codemodel.JExpr;
@@ -65,7 +65,6 @@ class DrillAggFuncHolder extends DrillFuncHolder {
       FunctionAttributes attributes,
       FunctionInitializer initializer) {
     super(attributes, initializer);
-    checkArgument(attributes.getNullHandling() == NullHandling.INTERNAL, "An aggregation function is required to do its own null handling.");
   }
 
   @Override
@@ -93,13 +92,13 @@ class DrillAggFuncHolder extends DrillFuncHolder {
         //Loop through all workspace vectors, to get the minimum of size of all workspace vectors.
         JVar sizeVar = setupBlock.decl(g.getModel().INT, "vectorSize", JExpr.lit(Integer.MAX_VALUE));
         JClass mathClass = g.getModel().ref(Math.class);
-        for (int id = 0; id < getWorkspaceVars().length; id ++) {
+        for (int id = 0; id < getWorkspaceVars().length; id++) {
           if (!getWorkspaceVars()[id].isInject()) {
             setupBlock.assign(sizeVar,mathClass.staticInvoke("min").arg(sizeVar).arg(g.getWorkspaceVectors().get(getWorkspaceVars()[id]).invoke("getValueCapacity")));
           }
         }
 
-        for(int i =0 ; i < getWorkspaceVars().length; i++) {
+        for (int i = 0; i < getWorkspaceVars().length; i++) {
           if (!getWorkspaceVars()[i].isInject()) {
             setupBlock.assign(workspaceJVars[i], JExpr._new(g.getHolderType(getWorkspaceVars()[i].getMajorType())));
           }
@@ -156,7 +155,7 @@ class DrillAggFuncHolder extends DrillFuncHolder {
   private JVar[] declareWorkspaceVectors(ClassGenerator<?> g) {
     JVar[] workspaceJVars = new JVar[getWorkspaceVars().length];
 
-    for(int i =0 ; i < getWorkspaceVars().length; i++){
+    for (int i = 0; i < getWorkspaceVars().length; i++) {
       if (getWorkspaceVars()[i].isInject()) {
         workspaceJVars[i] = g.declareClassField("work", g.getModel()._ref(getWorkspaceVars()[i].getType()));
         g.getBlock(BlockType.SETUP).assign(workspaceJVars[i], g.getMappingSet().getIncoming().invoke("getContext").invoke("getManagedBuffer"));
@@ -263,4 +262,9 @@ class DrillAggFuncHolder extends DrillFuncHolder {
 
   }
 
+  @Override
+  protected void checkNullHandling(NullHandling nullHandling) {
+    checkArgument(nullHandling == NullHandling.INTERNAL,
+        "An aggregate function is required to handle null input(s) on its own.");
+  }
 }

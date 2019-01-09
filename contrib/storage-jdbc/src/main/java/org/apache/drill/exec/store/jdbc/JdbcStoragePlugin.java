@@ -22,13 +22,15 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import javax.sql.DataSource;
 
-import com.google.common.base.Predicates;
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.adapter.jdbc.JdbcRules;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -46,7 +48,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlDialectFactoryImpl;
-import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
@@ -59,13 +61,12 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.exec.store.jdbc.DrillJdbcRuleBase.DrillJdbcFilterRule;
 import org.apache.drill.exec.store.jdbc.DrillJdbcRuleBase.DrillJdbcProjectRule;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
 public class JdbcStoragePlugin extends AbstractStoragePlugin {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JdbcStoragePlugin.class);
@@ -157,10 +158,10 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
   }
 
   /**
-   * Returns whether a condition is supported by {@link JdbcJoin}.
+   * Returns whether a condition is supported by {@link org.apache.calcite.adapter.jdbc.JdbcRules.JdbcJoin}.
    *
    * <p>Corresponds to the capabilities of
-   * {@link SqlImplementor#convertConditionToSqlNode}.
+   * {@link org.apache.calcite.rel.rel2sql.SqlImplementor#convertConditionToSqlNode}.
    *
    * @param node Condition
    * @return Whether condition is supported
@@ -202,7 +203,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
   private static class JdbcPrule extends ConverterRule {
 
     private JdbcPrule() {
-      super(JdbcDrel.class, Predicates.<RelNode>alwaysTrue(), DrillRel.DRILL_LOGICAL,
+      super(JdbcDrel.class, (Predicate<RelNode>) input -> true, DrillRel.DRILL_LOGICAL,
           Prel.DRILL_PHYSICAL, DrillRelFactories.LOGICAL_BUILDER, "JDBC_PREL_Converter");
     }
 
@@ -220,7 +221,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
   private class JdbcDrelConverterRule extends ConverterRule {
 
     public JdbcDrelConverterRule(DrillJdbcConvention in) {
-      super(RelNode.class, Predicates.<RelNode>alwaysTrue(), in, DrillRel.DRILL_LOGICAL,
+      super(RelNode.class, (Predicate<RelNode>) input -> true, in, DrillRel.DRILL_LOGICAL,
           DrillRelFactories.LOGICAL_BUILDER, "JDBC_DREL_Converter" + in.getName());
     }
 
@@ -234,7 +235,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
 
   private class CapitalizingJdbcSchema extends AbstractSchema {
 
-    final Map<String, CapitalizingJdbcSchema> schemaMap = Maps.newHashMap();
+    private final Map<String, CapitalizingJdbcSchema> schemaMap = new HashMap<>();
     private final JdbcSchema inner;
 
     public CapitalizingJdbcSchema(List<String> parentSchemaPath, String name, DataSource dataSource,
@@ -291,26 +292,41 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
       if (table != null) {
         return table;
       }
-      return inner.getTable(name.toUpperCase());
+      if (!areTableNamesCaseSensitive()) {
+        // Oracle and H2 changes unquoted identifiers to uppercase.
+        table = inner.getTable(name.toUpperCase());
+        if (table != null) {
+          return table;
+        }
+        // Postgres changes unquoted identifiers to lowercase.
+        return inner.getTable(name.toLowerCase());
+      }
 
+      // no table was found.
+      return null;
     }
 
+    @Override
+    public boolean areTableNamesCaseSensitive() {
+      return !config.areTableNamesCaseInsensitive();
+    }
   }
 
   private class JdbcCatalogSchema extends AbstractSchema {
 
-    private final Map<String, CapitalizingJdbcSchema> schemaMap = Maps.newHashMap();
+    private final Map<String, CapitalizingJdbcSchema> schemaMap = new HashMap<>();
     private final CapitalizingJdbcSchema defaultSchema;
 
     public JdbcCatalogSchema(String name) {
-      super(ImmutableList.<String> of(), name);
+      super(Collections.emptyList(), name);
 
-      try (Connection con = source.getConnection(); ResultSet set = con.getMetaData().getCatalogs()) {
+      try (Connection con = source.getConnection();
+           ResultSet set = con.getMetaData().getCatalogs()) {
         while (set.next()) {
           final String catalogName = set.getString(1);
           CapitalizingJdbcSchema schema = new CapitalizingJdbcSchema(
               getSchemaPath(), catalogName, source, dialect, convention, catalogName, null);
-          schemaMap.put(catalogName, schema);
+          schemaMap.put(schema.getName(), schema);
         }
       } catch (SQLException e) {
         logger.warn("Failure while attempting to load JDBC schema.", e);
@@ -324,7 +340,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
 
         if (!schemasAdded) {
           // there were no schemas, just create a default one (the jdbc system doesn't support catalogs/schemas).
-          schemaMap.put("default", new CapitalizingJdbcSchema(ImmutableList.<String> of(), name, source, dialect,
+          schemaMap.put(SchemaFactory.DEFAULT_WS_NAME, new CapitalizingJdbcSchema(Collections.emptyList(), name, source, dialect,
               convention, null, null));
         }
       } else {
@@ -333,8 +349,6 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
       }
 
       defaultSchema = schemaMap.values().iterator().next();
-
-
     }
 
     void setHolder(SchemaPlus plusOfThis) {
@@ -347,7 +361,8 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
 
     private boolean addSchemas() {
       boolean added = false;
-      try (Connection con = source.getConnection(); ResultSet set = con.getMetaData().getSchemas()) {
+      try (Connection con = source.getConnection();
+           ResultSet set = con.getMetaData().getSchemas()) {
         while (set.next()) {
           final String schemaName = set.getString(1);
           final String catalogName = set.getString(2);
@@ -358,7 +373,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
                 convention, catalogName, schemaName);
 
             // if a catalog schema doesn't exist, we'll add this at the top level.
-            schemaMap.put(schemaName, schema);
+            schemaMap.put(schema.getName(), schema);
           } else {
             CapitalizingJdbcSchema schema = new CapitalizingJdbcSchema(parentSchema.getSchemaPath(), schemaName,
                 source, dialect,
@@ -402,14 +417,9 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
 
       if (schema != null) {
         try {
-          Table t = schema.getTable(name);
-          if (t != null) {
-            return t;
-          }
-          return schema.getTable(name.toUpperCase());
+          return schema.getTable(name);
         } catch (RuntimeException e) {
           logger.warn("Failure while attempting to read table '{}' from JDBC source.", name, e);
-
         }
       }
 
@@ -422,6 +432,10 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
       return defaultSchema.getTableNames();
     }
 
+    @Override
+    public boolean areTableNamesCaseSensitive() {
+      return defaultSchema.areTableNamesCaseSensitive();
+    }
   }
 
   @Override

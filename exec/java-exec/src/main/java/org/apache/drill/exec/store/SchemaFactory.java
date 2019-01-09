@@ -25,14 +25,15 @@ import java.io.IOException;
  * StoragePlugins implements this interface to register the schemas they provide.
  */
 public interface SchemaFactory {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SchemaFactory.class);
+
+  String DEFAULT_WS_NAME = "default";
 
   /**
    * Register the schemas provided by this SchemaFactory implementation under the given parent schema.
    *
    * @param schemaConfig Configuration for schema objects.
    * @param parent Reference to parent schema.
-   * @throws IOException
+   * @throws IOException in case of error during schema registration
    */
-  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException;
+  void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException;
 }

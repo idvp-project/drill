@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.sql;
 
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.categories.SqlTest;
 import org.apache.drill.categories.UnlikelyTest;
@@ -322,6 +322,38 @@ public class TestCTAS extends BaseTestQuery {
       test(String.format("CREATE TABLE %s.%s AS SELECT * FROM cp.`project/pushdown/empty.json`", DFS_TMP_SCHEMA, newTblName));
     } finally {
       test("DROP TABLE IF EXISTS %s.%s", DFS_TMP_SCHEMA, newTblName);
+    }
+  }
+
+  @Test
+  public void testTableIsCreatedWithinWorkspace() throws Exception {
+    String tableName = "table_created_within_workspace";
+    try {
+      test("CREATE TABLE `%s`.`%s` AS SELECT * FROM cp.`region.json`", DFS_TMP_SCHEMA, "/" + tableName);
+      testBuilder()
+          .sqlQuery("SELECT region_id FROM `%s`.`%s` LIMIT 1", DFS_TMP_SCHEMA, tableName)
+          .unOrdered()
+          .baselineColumns("region_id")
+          .baselineValues(0L)
+          .go();
+    } finally {
+      test("DROP TABLE IF EXISTS `%s`.`%s`", DFS_TMP_SCHEMA, tableName);
+    }
+  }
+
+  @Test
+  public void testTableIsFoundWithinWorkspaceWhenNameStartsWithSlash() throws Exception {
+    String tableName = "table_found_within_workspace";
+    try {
+      test("CREATE TABLE `%s`.`%s` AS SELECT * FROM cp.`region.json`", DFS_TMP_SCHEMA, tableName);
+      testBuilder()
+          .sqlQuery("SELECT region_id FROM `%s`.`%s` LIMIT 1", DFS_TMP_SCHEMA, "/" + tableName)
+          .unOrdered()
+          .baselineColumns("region_id")
+          .baselineValues(0L)
+          .go();
+    } finally {
+      test("DROP TABLE IF EXISTS `%s`.`%s`", DFS_TMP_SCHEMA, tableName);
     }
   }
 

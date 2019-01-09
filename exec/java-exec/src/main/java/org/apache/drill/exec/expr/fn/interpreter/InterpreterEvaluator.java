@@ -24,7 +24,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import com.google.common.base.Function;
+import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.ConvertExpression;
@@ -56,7 +56,7 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.vector.ValueHolderHelper;
 import org.apache.drill.exec.vector.ValueVector;
 
-import com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import io.netty.buffer.DrillBuf;
 
@@ -227,7 +227,7 @@ public class InterpreterEvaluator {
         @Nullable
         @Override
         public ValueHolder apply(DrillBuf buffer) {
-          return ValueHolderHelper.getDecimal28Holder(buffer, decExpr.getBigDecimal().toString());
+          return ValueHolderHelper.getDecimal28Holder(buffer, decExpr.getBigDecimal());
         }
       });
     }
@@ -238,7 +238,7 @@ public class InterpreterEvaluator {
         @Nullable
         @Override
         public ValueHolder apply(DrillBuf buffer) {
-          return ValueHolderHelper.getDecimal38Holder(buffer, decExpr.getBigDecimal().toString());
+          return ValueHolderHelper.getDecimal38Holder(buffer, decExpr.getBigDecimal());
         }
       });
     }
@@ -246,7 +246,7 @@ public class InterpreterEvaluator {
     @Override
     public ValueHolder visitVarDecimalConstant(final ValueExpressions.VarDecimalExpression decExpr, Integer value) throws RuntimeException {
       return getConstantValueHolder(decExpr.getBigDecimal().toString(), decExpr.getMajorType().getMinorType(),
-          buffer -> ValueHolderHelper.getVarDecimalHolder(Objects.requireNonNull(buffer), decExpr.getBigDecimal().toString()));
+          buffer -> ValueHolderHelper.getVarDecimalHolder(Objects.requireNonNull(buffer), decExpr.getBigDecimal()));
     }
 
     @Override

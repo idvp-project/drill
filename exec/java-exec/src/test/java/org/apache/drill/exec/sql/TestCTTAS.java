@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.sql;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
@@ -444,6 +444,67 @@ public class TestCTTAS extends BaseTestQuery {
         .baselineColumns("c1", "c2")
         .baselineValues("12312", "12312")
         .go();
+  }
+
+  @Test
+  public void testTemporaryTableWithAndWithoutLeadingSlashAreTheSame() throws Exception {
+    String tablename = "table_with_and_without_slash_create";
+
+    try {
+      test("CREATE TEMPORARY TABLE %s AS SELECT * FROM cp.`region.json`", tablename);
+
+      expectUserRemoteExceptionWithMessage(
+          String.format("VALIDATION ERROR: A table or view with given name [%s] already exists in schema [%s]",
+          tablename, DFS_TMP_SCHEMA));
+
+      test(String.format("CREATE TEMPORARY TABLE `%s` AS SELECT * FROM cp.`employee.json`", "/" + tablename));
+    } finally {
+      test("DROP TABLE IF EXISTS %s", tablename);
+    }
+  }
+
+  @Test
+  public void testSelectFromTemporaryTableWithAndWithoutLeadingSlash() throws Exception {
+    String tablename = "select_from_table_with_and_without_slash";
+
+    try {
+      test("CREATE TEMPORARY TABLE %s AS SELECT * FROM cp.`region.json`", tablename);
+
+      String query = "SELECT region_id FROM `%s` LIMIT 1";
+
+      testBuilder()
+          .sqlQuery(query, tablename)
+          .unOrdered()
+          .baselineColumns("region_id")
+          .baselineValues(0L)
+          .go();
+
+      testBuilder()
+          .sqlQuery(query, "/" + tablename)
+          .unOrdered()
+          .baselineColumns("region_id")
+          .baselineValues(0L)
+          .go();
+    } finally {
+      test("DROP TABLE IF EXISTS %s", tablename);
+    }
+  }
+
+  @Test
+  public void testDropTemporaryTableNameStartsWithSlash() throws Exception {
+    String tableName = "table_starts_with_slash_drop";
+
+    try {
+      test("CREATE TEMPORARY TABLE `%s` AS SELECT 1 FROM cp.`employee.json`", tableName);
+      testBuilder()
+          .sqlQuery("DROP TABLE `%s`", "/" + tableName)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(true, String.format("Temporary table [%s] dropped", tableName))
+          .go();
+    } finally {
+      test("DROP TABLE IF EXISTS %s", tableName);
+    }
   }
 
   private void expectUserRemoteExceptionWithMessage(String message) {

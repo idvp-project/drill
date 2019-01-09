@@ -17,9 +17,8 @@
  */
 package org.apache.drill.exec.fn.impl;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
-import mockit.integration.junit4.JMockit;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.io.Files;
 import org.apache.drill.categories.SqlFunctionTest;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.common.util.DrillFileUtils;
@@ -37,12 +36,10 @@ import org.joda.time.LocalTime;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-import org.junit.runner.RunWith;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-@RunWith(JMockit.class)
 @Category({UnlikelyTest.class, SqlFunctionTest.class})
 public class TestDateFunctions extends PopUnitTestBase {
 
@@ -54,7 +51,7 @@ public class TestDateFunctions extends PopUnitTestBase {
       bit.run();
       client.connect();
       List<QueryDataBatch> results = client.runQuery(org.apache.drill.exec.proto.UserBitShared.QueryType.PHYSICAL,
-        Files.toString(DrillFileUtils.getResourceAsFile(physicalPlan), Charsets.UTF_8)
+        Files.asCharSource(DrillFileUtils.getResourceAsFile(physicalPlan), Charsets.UTF_8).read()
           .replace("#{TEST_FILE}", resourceFile));
 
       RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());

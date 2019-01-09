@@ -18,9 +18,10 @@
 package org.apache.drill.exec.physical.impl.project;
 
 import com.carrotsearch.hppc.IntHashSet;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import org.apache.drill.common.expression.fn.FunctionReplacementUtils;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.drill.common.expression.ConvertExpression;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -33,7 +34,6 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
-import org.apache.drill.common.expression.fn.CastFunctions;
 import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
@@ -55,13 +55,14 @@ import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.record.RecordBatchSizer;
 import org.apache.drill.exec.record.SimpleRecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.util.record.RecordBatchStats;
+import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.UntypedNullHolder;
@@ -252,7 +253,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     }
 
     memoryManager.updateOutgoingStats(outputRecords);
-    logger.debug("BATCH_STATS, outgoing: {}", new RecordBatchSizer(this));
+    RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
 
     // Get the final outcome based on hasRemainder since that will determine if all the incoming records were
     // consumed in current output batch or not
@@ -298,7 +299,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     }
 
     memoryManager.updateOutgoingStats(projRecords);
-    logger.debug("BATCH_STATS, outgoing: {}", new RecordBatchSizer(this));
+    RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
   }
 
   public void addComplexWriter(final ComplexWriter writer) {
@@ -328,6 +329,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       final ValueVector.Mutator m = v.getMutator();
       m.setValueCount(count);
     }
+
+    container.setRecordCount(count);
 
     if (complexWriters == null) {
       return;
@@ -601,7 +604,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       if (Types.isComplex(field.getType()) || Types.isRepeated(field.getType())) {
         final LogicalExpression convertToJson = FunctionCallFactory.createConvert(ConvertExpression.CONVERT_TO, "JSON",
                                                             SchemaPath.getSimplePath(fieldName), ExpressionPosition.UNKNOWN);
-        final String castFuncName = CastFunctions.getCastFunc(MinorType.VARCHAR);
+        final String castFuncName = FunctionReplacementUtils.getCastFunc(MinorType.VARCHAR);
         final List<LogicalExpression> castArgs = Lists.newArrayList();
         castArgs.add(convertToJson);  //input_expr
         // implicitly casting to varchar, since we don't know actual source length, cast to undefined length, which will preserve source length
@@ -873,7 +876,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
    */
   @Override
   protected IterOutcome handleNullInput() {
-    if (! popConfig.isOutputProj()) {
+    if (!popConfig.isOutputProj()) {
       return super.handleNullInput();
     }
 
@@ -894,5 +897,11 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     container.buildSchema(SelectionVectorMode.NONE);
     wasNone = true;
     return IterOutcome.OK_NEW_SCHEMA;
+  }
+
+  @Override
+  public void dump() {
+    logger.error("ProjectRecordBatch[projector={}, hasRemainder={}, remainderIndex={}, recordCount={}, container={}]",
+        projector, hasRemainder, remainderIndex, recordCount, container);
   }
 }

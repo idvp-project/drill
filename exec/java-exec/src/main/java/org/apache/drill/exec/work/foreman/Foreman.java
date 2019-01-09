@@ -17,8 +17,9 @@
  */
 package org.apache.drill.exec.work.foreman;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import org.apache.drill.exec.work.filter.RuntimeFilterRouter;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
@@ -121,6 +122,9 @@ public class Foreman implements Runnable {
 
   private String queryText;
 
+  private RuntimeFilterRouter runtimeFilterRouter;
+  private boolean enableRuntimeFilter;
+
   /**
    * Constructor. Sets up the Foreman, but does not initiate any execution.
    *
@@ -147,6 +151,7 @@ public class Foreman implements Runnable {
     this.fragmentsRunner = new FragmentsRunner(bee, initiatingClient, drillbitContext, this);
     this.queryStateProcessor = new QueryStateProcessor(queryIdString, queryManager, drillbitContext, new ForemanResult());
     this.profileOption = setProfileOption(queryContext.getOptions());
+    this.enableRuntimeFilter = queryContext.getOptions().getOption(ExecConstants.HASHJOIN_ENABLE_RUNTIME_FILTER_KEY).bool_val;
   }
 
 
@@ -260,9 +265,10 @@ public class Foreman implements Runnable {
         break;
       case SQL:
         final String sql = queryRequest.getPlan();
-        // log query id and query text before starting any real work. Also, put
+        // log query id, username and query text before starting any real work. Also, put
         // them together such that it is easy to search based on query id
-        logger.info("Query text for query id {}: {}", this.queryIdString, sql);
+        logger.info("Query text for query with id {} issued by {}: {}", queryIdString,
+            queryContext.getQueryUserName(), sql);
         runSQL(sql);
         break;
       case EXECUTION:
@@ -395,10 +401,21 @@ public class Foreman implements Runnable {
   }
 
   private void runPhysicalPlan(final PhysicalPlan plan) throws ExecutionSetupException {
+    runPhysicalPlan(plan, null);
+  }
+
+  private void runPhysicalPlan(final PhysicalPlan plan, Pointer<String> textPlan) throws ExecutionSetupException {
     validatePlan(plan);
 
     queryRM.visitAbstractPlan(plan);
     final QueryWorkUnit work = getQueryWorkUnit(plan);
+    if (enableRuntimeFilter) {
+      runtimeFilterRouter = new RuntimeFilterRouter(work, drillbitContext);
+      runtimeFilterRouter.collectRuntimeFilterParallelAndControlInfo();
+    }
+    if (textPlan != null) {
+      queryManager.setPlanText(textPlan.value);
+    }
     queryRM.visitPhysicalPlan(work);
     queryRM.setCost(plan.totalCost());
     queryManager.setTotalCost(plan.totalCost());
@@ -565,8 +582,7 @@ public class Foreman implements Runnable {
   private void runSQL(final String sql) throws ExecutionSetupException {
     final Pointer<String> textPlan = new Pointer<>();
     final PhysicalPlan plan = DrillSqlWorker.getPlan(queryContext, sql, textPlan);
-    queryManager.setPlanText(textPlan.value);
-    runPhysicalPlan(plan);
+    runPhysicalPlan(plan, textPlan);
   }
 
   private PhysicalPlan convert(final LogicalPlan plan) throws OptimizerException {
@@ -718,7 +734,9 @@ public class Foreman implements Runnable {
 
       logger.debug(queryIdString + ": cleaning up.");
       injector.injectPause(queryContext.getExecutionControls(), "foreman-cleanup", logger);
-
+      if (enableRuntimeFilter && runtimeFilterRouter != null) {
+        runtimeFilterRouter.waitForComplete();
+      }
       // remove the channel disconnected listener (doesn't throw)
       closeFuture.removeListener(closeListener);
 
@@ -846,4 +864,10 @@ public class Foreman implements Runnable {
       logger.warn("Interrupted while waiting for RPC outcome of sending final query result to initiating client.");
     }
   }
+
+
+  public RuntimeFilterRouter getRuntimeFilterRouter() {
+    return runtimeFilterRouter;
+  }
+
 }
