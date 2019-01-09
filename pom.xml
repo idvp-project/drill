@@ -760,6 +760,8 @@
               -Djava.awt.headless=true
               -XX:+CMSClassUnloadingEnabled -ea
               -Djdk.attach.allowAttachSelf=true
+              -Duser.language=en
+              -Duser.country=US
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
             </argLine>
             <forkCount>${forkCount}</forkCount>
