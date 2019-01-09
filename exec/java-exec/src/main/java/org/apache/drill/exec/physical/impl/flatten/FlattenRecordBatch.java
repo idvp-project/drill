@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.flatten;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.FieldReference;
@@ -38,7 +39,6 @@ import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.expr.ValueVectorReadExpression;
 import org.apache.drill.exec.expr.ValueVectorWriteExpression;
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.physical.config.FlattenPOP;
@@ -52,15 +52,15 @@ import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.util.record.RecordBatchStats;
+import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
-import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 
 import com.carrotsearch.hppc.IntHashSet;
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import com.sun.codemodel.JExpr;
 
 // TODO - handle the case where a user tries to flatten a scalar, should just act as a project all of the columns exactly
@@ -159,7 +159,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       // i.e. all rows fit within memory budget.
       setOutputRowCount(Math.min(columnSize.getElementCount(), getOutputRowCount()));
 
-      logger.debug("BATCH_STATS, incoming: {}", getRecordBatchSizer());
+      RecordBatchStats.logRecordBatchStats(RecordBatchIOType.INPUT, getRecordBatchSizer(), getRecordBatchStatsContext());
 
       updateIncomingStats();
     }
@@ -172,7 +172,8 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     int configuredBatchSize = (int) context.getOptions().getOption(ExecConstants.OUTPUT_BATCH_SIZE_VALIDATOR);
     flattenMemoryManager = new FlattenMemoryManager(configuredBatchSize);
 
-    logger.debug("BATCH_STATS, configured output batch size: {}", configuredBatchSize);
+      RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+        "configured output batch size: %d", configuredBatchSize);
   }
 
   @Override
@@ -213,13 +214,11 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
 
     if (! (inVV instanceof RepeatedValueVector)) {
       if (incoming.getRecordCount() != 0) {
-        logger.warn("setFlattenVector cast failed and recordcount is not 0, create repeated value wrapper.");
-        vector = new RepeatedVectorWrapper(field, context.getAllocator(), inVV);
-      } else {
-        //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
-        logger.error("setFlattenVector cast failed and recordcount is 0, create empty vector anyway.");
-        vector = new RepeatedMapVector(field, oContext.getAllocator(), null);
+        throw UserException.unsupportedError().message("Flatten does not support inputs of non-list values.").build(logger);
       }
+      //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
+      logger.error("setFlattenVector cast failed and recordcount is 0, create empty vector anyway.");
+      vector = new RepeatedMapVector(field, oContext.getAllocator(), null);
     } else {
       vector = RepeatedValueVector.class.cast(inVV);
     }
@@ -265,10 +264,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     }
 
     flattenMemoryManager.updateOutgoingStats(outputRecords);
-
-    if (logger.isDebugEnabled()) {
-      logger.debug("BATCH_STATS, outgoing: {}", new RecordBatchSizer(this));
-    }
+    RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
 
     // Get the final outcome based on hasRemainder since that will determine if all the incoming records were
     // consumed in current output batch or not
@@ -374,15 +370,12 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       tp = ((RepeatedMapVector)flattenField).getTransferPairToSingleMap(reference.getAsNamePart().getName(), oContext.getAllocator());
     } else if ( !(flattenField instanceof RepeatedValueVector) ) {
       if(incoming.getRecordCount() != 0) {
-        logger.warn("Flatten does not support inputs of non-list values.", flattenField);
-        RepeatedVectorWrapper vv = new RepeatedVectorWrapper(flattenField.getField(), oContext.getAllocator(), flattenField);
-        tp = vv.getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
-      } else {
-        logger.error("Cannot cast {} to RepeatedValueVector", flattenField);
-        //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
-        final ValueVector vv = new RepeatedMapVector(flattenField.getField(), oContext.getAllocator(), null);
-        tp = RepeatedValueVector.class.cast(vv).getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
+        throw UserException.unsupportedError().message("Flatten does not support inputs of non-list values.").build(logger);
       }
+      logger.error("Cannot cast {} to RepeatedValueVector", flattenField);
+      //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
+      final ValueVector vv = new RepeatedMapVector(flattenField.getField(), oContext.getAllocator(), null);
+      tp = RepeatedValueVector.class.cast(vv).getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
     } else {
       final ValueVector vvIn = RepeatedValueVector.class.cast(flattenField).getDataVector();
       // vvIn may be null because of fast schema return for repeated list vectors
@@ -523,15 +516,15 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     stats.setLongStat(Metric.AVG_OUTPUT_ROW_BYTES, flattenMemoryManager.getAvgOutputRowWidth());
     stats.setLongStat(Metric.OUTPUT_RECORD_COUNT, flattenMemoryManager.getTotalOutputRecords());
 
-    if (logger.isDebugEnabled()) {
-      logger.debug("BATCH_STATS, incoming aggregate: count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        flattenMemoryManager.getNumIncomingBatches(), flattenMemoryManager.getAvgInputBatchSize(),
-        flattenMemoryManager.getAvgInputRowWidth(), flattenMemoryManager.getTotalInputRecords());
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "incoming aggregate: count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      flattenMemoryManager.getNumIncomingBatches(), flattenMemoryManager.getAvgInputBatchSize(),
+      flattenMemoryManager.getAvgInputRowWidth(), flattenMemoryManager.getTotalInputRecords());
 
-      logger.debug("BATCH_STATS, outgoing aggregate: count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        flattenMemoryManager.getNumOutgoingBatches(), flattenMemoryManager.getAvgOutputBatchSize(),
-        flattenMemoryManager.getAvgOutputRowWidth(), flattenMemoryManager.getTotalOutputRecords());
-    }
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "outgoing aggregate: count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      flattenMemoryManager.getNumOutgoingBatches(), flattenMemoryManager.getAvgOutputBatchSize(),
+      flattenMemoryManager.getAvgOutputRowWidth(), flattenMemoryManager.getTotalOutputRecords());
   }
 
   @Override
@@ -540,78 +533,9 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     super.close();
   }
 
-  //Note:
-  //wrapper for non-repeatable ValueVector
-  private final static class RepeatedVectorWrapper extends BaseRepeatedValueVector implements RepeatedValueVector {
-
-    private RepeatedVectorWrapper(MaterializedField field, BufferAllocator allocator, ValueVector vector) {
-      //todo: offsets?
-      super(field, allocator, vector);
-    }
-
-
-    @Override
-    public void allocateNew() throws OutOfMemoryException {
-      if (!allocateNewSafe()) {
-        throw new OutOfMemoryException();
-      }
-    }
-
-    @Override
-    public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-      return getDataVector().getTransferPair(ref, allocator);
-    }
-
-    @Override
-    public TransferPair makeTransferPair(ValueVector target) {
-      return getDataVector().makeTransferPair(target);
-    }
-
-    @Override
-    public RepeatedAccessor getAccessor() {
-      Accessor accessor = getDataVector().getAccessor();
-      return new BaseRepeatedAccessor() {
-
-        @Override
-        public int getInnerValueCountAt(int index) {
-          return 1;
-        }
-
-        @Override
-        public boolean isEmpty(int index) {
-          return false;
-        }
-
-        @Override
-        public Object getObject(int index) {
-          return accessor.getObject(index);
-        }
-
-        @Override
-        public int getValueCount() {
-          return this.getInnerValueCount();
-        }
-
-        @Override
-        public boolean isNull(int index) {
-          return accessor.isNull(index);
-        }
-      };
-    }
-
-    @Override
-    public RepeatedMutator getMutator() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FieldReader getReader() {
-      return getDataVector().getReader();
-    }
-
-    @Override
-    public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
-
-    }
+  @Override
+  public void dump() {
+    logger.error("FlattenRecordbatch[hasRemainder={}, remainderIndex={}, recordCount={}, flattener={}, container={}]",
+        hasRemainder, remainderIndex, recordCount, flattener, container);
   }
 }

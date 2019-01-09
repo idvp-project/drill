@@ -42,7 +42,7 @@ public class ITTestShadedJar {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ITTestShadedJar.class);
 
   private static DrillbitClassLoader drillbitLoader;
-  private static URLClassLoader rootClassLoader;
+  private static ClassLoader rootClassLoader;
   private static int userPort;
 
   @ClassRule
@@ -55,7 +55,7 @@ public class ITTestShadedJar {
       try {
         drillbitLoader = new DrillbitClassLoader();
         drillbitLoader.loadClass("org.apache.commons.io.FileUtils");
-        rootClassLoader = (URLClassLoader) Thread.currentThread().getContextClassLoader();
+        rootClassLoader = Thread.currentThread().getContextClassLoader();
 
         Class<?> clazz = drillbitLoader.loadClass("org.apache.drill.test.BaseTestQuery");
         Class<?> watcherClazz = drillbitLoader.loadClass("org.apache.drill.test.BaseDirTestWatcher");
@@ -134,10 +134,7 @@ public class ITTestShadedJar {
 
   @Test
   public void testDatabaseVersion() throws Exception {
-    final URLClassLoader loader = (URLClassLoader) ClassLoader.getSystemClassLoader();
-    Method method = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-    method.setAccessible(true);
-    method.invoke(loader, getJdbcUrl());
+    final URLClassLoader loader = URLClassLoader.newInstance(new URL[] {getJdbcUrl()});
 
     Class<?> clazz = loader.loadClass("org.apache.drill.jdbc.Driver");
     try {
@@ -155,10 +152,7 @@ public class ITTestShadedJar {
 
   @Test
   public void executeJdbcAllQuery() throws Exception {
-    final URLClassLoader loader = (URLClassLoader) ClassLoader.getSystemClassLoader();
-    Method method = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-    method.setAccessible(true);
-    method.invoke(loader, getJdbcUrl());
+    final URLClassLoader loader = URLClassLoader.newInstance(new URL[] {getJdbcUrl()});
 
     Class<?> clazz = loader.loadClass("org.apache.drill.jdbc.Driver");
     try {
@@ -175,7 +169,8 @@ public class ITTestShadedJar {
   private static void printQuery(Connection c, String query) throws SQLException {
     final StringBuilder sb = new StringBuilder();
 
-    try (Statement s = c.createStatement(); ResultSet result = s.executeQuery(query)) {
+    try (Statement s = c.createStatement();
+         ResultSet result = s.executeQuery(query)) {
       while (result.next()) {
         final int columnCount = result.getMetaData().getColumnCount();
         for(int i = 1; i < columnCount+1; i++){

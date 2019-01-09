@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.fn.impl;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.types.Types;
@@ -89,7 +89,7 @@ public class TestAggregateFunctions extends BaseTestQuery {
   @Test
   public void testCountDistinctOnBoolColumn() throws Exception {
     testBuilder()
-        .sqlQuery("select count(distinct `bool_val`) as cnt from `sys`.`options`")
+        .sqlQuery("select count(distinct `bool_val`) as cnt from `sys`.`options_old`")
         .ordered()
         .baselineColumns("cnt")
         .baselineValues(2L)
@@ -447,7 +447,7 @@ public class TestAggregateFunctions extends BaseTestQuery {
       alterSession(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true);
       testBuilder()
           .sqlQuery("select sum(cast(a as decimal(9,0))) as s,\n" +
-              "avg(cast(a as decimal(9,0))) as a,\n" +
+              "avg(cast(a as decimal(9,0))) as av,\n" +
               "var_samp(cast(a as decimal(9,0))) as varSamp,\n" +
               "var_pop(cast(a as decimal(9,0))) as varPop,\n" +
               "stddev_pop(cast(a as decimal(9,0))) as stddevPop,\n" +
@@ -455,7 +455,7 @@ public class TestAggregateFunctions extends BaseTestQuery {
               "max(cast(a as decimal(9,0))) as mx," +
             "min(cast(a as decimal(9,0))) as mn from dfs.`%s` t group by a", fileName)
           .unOrdered()
-          .baselineColumns("s", "a", "varSamp", "varPop", "stddevPop", "stddevSamp", "mx", "mn")
+          .baselineColumns("s", "av", "varSamp", "varPop", "stddevPop", "stddevSamp", "mx", "mn")
           .baselineValues(BigDecimal.valueOf(1), new BigDecimal("1.000000"), new BigDecimal("0.000000"),
               new BigDecimal("0.000000"), new BigDecimal("0.000000"), new BigDecimal("0.000000"),
               BigDecimal.valueOf(1), BigDecimal.valueOf(1))

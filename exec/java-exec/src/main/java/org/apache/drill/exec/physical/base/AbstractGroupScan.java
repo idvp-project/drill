@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -68,6 +68,12 @@ public abstract class AbstractGroupScan extends AbstractBase implements GroupSca
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
     throw new UnsupportedOperationException(String.format("%s does not implement clone(columns) method!", this.getClass().getCanonicalName()));
+  }
+
+  @Override
+  @JsonIgnore
+  public boolean isDistributed() {
+    return getMaxParallelizationWidth() > 1 ? true : false;
   }
 
   @Override

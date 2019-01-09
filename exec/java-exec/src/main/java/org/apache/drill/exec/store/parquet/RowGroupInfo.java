@@ -94,5 +94,4 @@ public class RowGroupInfo extends ReadEntryFromHDFS implements CompleteWork, Fil
   public void setColumns(List<? extends ColumnMetadata> columns) {
     this.columns = columns;
   }
-
 }

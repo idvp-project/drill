@@ -22,9 +22,11 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Iterator;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -43,8 +45,8 @@ import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
@@ -82,6 +84,11 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     assertTrue(actualSchema.metadata(1).isMap());
     assertEquals(2, actualSchema.metadata("m").mapSchema().size());
     assertEquals(2, actualSchema.column("m").getChildren().size());
+    TupleWriter mapWriter = rootWriter.array("m").tuple();
+    assertSame(actualSchema.metadata("m").mapSchema(), mapWriter.schema().mapSchema());
+    assertSame(mapWriter.tupleSchema(), mapWriter.schema().mapSchema());
+    assertSame(mapWriter.tupleSchema().metadata(0), mapWriter.scalar(0).schema());
+    assertSame(mapWriter.tupleSchema().metadata(1), mapWriter.scalar(1).schema());
 
     // Write a couple of rows with arrays.
 
@@ -94,8 +101,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       .addRow(30, mapArray(
           mapValue(310, "d3.1"),
           mapValue(320, "d3.2"),
-          mapValue(330, "d3.3")))
-      ;
+          mapValue(330, "d3.3")));
 
     // Verify the first batch
 
@@ -103,6 +109,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     RepeatedMapVector mapVector = (RepeatedMapVector) actual.container().getValueVector(1).getValueVector();
     MaterializedField mapField = mapVector.getField();
     assertEquals(2, mapField.getChildren().size());
+    Iterator<MaterializedField> iter = mapField.getChildren().iterator();
+    assertTrue(mapWriter.scalar(0).schema().schema().isEquivalent(iter.next()));
+    assertTrue(mapWriter.scalar(1).schema().schema().isEquivalent(iter.next()));
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(10, mapArray(
@@ -114,7 +123,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             mapValue(320, "d3.2"),
             mapValue(330, "d3.3")))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
 
     // In the second, create a row, then add a map member.
     // Should be back-filled to empty for the first row.
@@ -125,7 +134,6 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           mapValue(410, "d4.1"),
           mapValue(420, "d4.2")));
 
-    TupleWriter mapWriter = rootWriter.array("m").tuple();
     mapWriter.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.OPTIONAL));
 
     rootWriter
@@ -135,8 +143,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       .addRow(60, mapArray(
           mapValue(610, "d6.1", "e6.1"),
           mapValue(620, "d6.2", null),
-          mapValue(630, "d6.3", "e6.3")))
-      ;
+          mapValue(630, "d6.3", "e6.3")));
 
     // Verify the second batch
 
@@ -165,7 +172,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             mapValue(620, "d6.2", null),
             mapValue(630, "d6.3", "e6.3")))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
 
     rsLoader.close();
   }
@@ -198,8 +205,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       .addRow(30, mapArray(
           mapValue(310, strArray("d3.1.1", "d3.2.2")),
           mapValue(320, strArray()),
-          mapValue(330, strArray("d3.3.1", "d1.2.2"))))
-      ;
+          mapValue(330, strArray("d3.3.1", "d1.2.2"))));
 
     // Verify the batch
 
@@ -214,13 +220,13 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             mapValue(320, strArray()),
             mapValue(330, strArray("d3.3.1", "d1.2.2"))))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
 
     rsLoader.close();
   }
 
   /**
-   * Test a doubly-nested arrays of maps.
+   * Test a doubly-nested array of maps.
    */
 
   @Test
