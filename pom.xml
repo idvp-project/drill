@@ -3463,4 +3463,15 @@
     <module>drill-yarn</module>
     <module>distribution</module>
   </modules>
+
+  <distributionManagement>
+    <repository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
