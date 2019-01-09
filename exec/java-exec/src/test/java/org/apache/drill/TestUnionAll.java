@@ -17,7 +17,7 @@
  */
 package org.apache.drill;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.categories.OperatorTest;
@@ -213,6 +213,7 @@ public class TestUnionAll extends BaseTestQuery {
   }
 
   @Test
+  @Category(UnlikelyTest.class)
   public void testUnionAllViewExpandableStar() throws Exception {
     try {
       test("use dfs.tmp");
@@ -475,8 +476,8 @@ public class TestUnionAll extends BaseTestQuery {
             "(select columns[0] c2 from cp.`%s` t2 \n" +
             "where t2.columns[0] is not null \n" +
             "group by columns[0])) \n" +
-            "group by col0"
-          , root, root)
+            "group by col0",
+            root, root)
         .unOrdered()
         .baselineColumns("col0")
         .baselineValues("290")
@@ -661,6 +662,7 @@ public class TestUnionAll extends BaseTestQuery {
   }
 
   @Test // see DRILL-2746
+  @Category(UnlikelyTest.class)
   public void testInListOnUnionAll() throws Exception {
     String query = "select n_nationkey \n" +
         "from (select n1.n_nationkey from cp.`tpch/nation.parquet` n1 inner join cp.`tpch/region.parquet` r1 on n1.n_regionkey = r1.r_regionkey \n" +
@@ -1248,7 +1250,9 @@ public class TestUnionAll extends BaseTestQuery {
 
   @Test
   public void testUnionAllBothEmptyDirs() throws Exception {
-    final BatchSchema expectedSchema = new SchemaBuilder().build();
+    final BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("key", TypeProtos.MinorType.INT)
+        .build();
 
     testBuilder()
         .sqlQuery("SELECT key FROM dfs.tmp.`%1$s` UNION ALL SELECT key FROM dfs.tmp.`%1$s`", EMPTY_DIR_NAME)

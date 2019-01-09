@@ -18,62 +18,113 @@
 package org.apache.drill.exec.expr.fn;
 
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.Map;
 
+import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.janino.Java;
-import org.codehaus.janino.Java.ClassDeclaration;
+import org.codehaus.janino.Java.AbstractClassDeclaration;
 import org.codehaus.janino.Java.MethodDeclarator;
-import org.codehaus.janino.util.Traverser;
+import org.codehaus.janino.Unparser;
+import org.codehaus.janino.util.AbstractTraverser;
+import org.codehaus.janino.util.DeepCopier;
 
-import com.google.common.collect.Maps;
+public class MethodGrabbingVisitor {
 
-
-public class MethodGrabbingVisitor{
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MethodGrabbingVisitor.class);
-
-  private Class<?> c;
-  private Map<String, String> methods = Maps.newHashMap();
-  private ClassFinder classFinder = new ClassFinder();
+  private final Class<?> clazz;
+  private final Map<String, String> methods = new HashMap<>();
+  private final ClassFinder classFinder = new ClassFinder();
   private boolean captureMethods = false;
 
-  private MethodGrabbingVisitor(Class<?> c) {
-    super();
-    this.c = c;
+  private MethodGrabbingVisitor(Class<?> clazz) {
+    this.clazz = clazz;
   }
 
-  public class ClassFinder extends Traverser{
+  /**
+   * Creates a map with all method names and their modified bodies
+   * from specified {@link Java.CompilationUnit}.
+   *
+   * @param compilationUnit the source of the methods to collect
+   * @param clazz           type of the class to handle
+   * @return a map with all method names and their modified bodies.
+   */
+  public static Map<String, String> getMethods(Java.CompilationUnit compilationUnit, Class<?> clazz) {
+    MethodGrabbingVisitor visitor = new MethodGrabbingVisitor(clazz);
+    visitor.classFinder.visitTypeDeclaration(compilationUnit.getPackageMemberTypeDeclarations()[0]);
+    return visitor.methods;
+  }
+
+  public class ClassFinder extends AbstractTraverser<RuntimeException> {
 
     @Override
-    public void traverseClassDeclaration(ClassDeclaration cd) {
-//      logger.debug("Traversing: {}", cd.getClassName());
+    public void traverseClassDeclaration(AbstractClassDeclaration classDeclaration) {
       boolean prevCapture = captureMethods;
-      captureMethods = c.getName().equals(cd.getClassName());
-      super.traverseClassDeclaration(cd);
+      captureMethods = clazz.getName().equals(classDeclaration.getClassName());
+      super.traverseClassDeclaration(classDeclaration);
       captureMethods = prevCapture;
     }
 
     @Override
-    public void traverseMethodDeclarator(MethodDeclarator md) {
-//      logger.debug(c.getName() + ": Found {}, include {}", md.name, captureMethods);
+    public void traverseMethodDeclarator(MethodDeclarator methodDeclarator) {
+      if (captureMethods) {
+        // Generates a "labeled statement".
+        // This code takes code from the method body, wraps it into the labeled statement
+        // and replaces all the return statements by break command with label.
+        //
+        // For example, the following method
+        //    public void foo(int a) {
+        //      if (a < 0) {
+        //        return;
+        //      } else {
+        //        do something;
+        //      }
+        //    }
+        //
+        // will be converted to
+        //    MethodClassName_foo: {
+        //      if (a < 0) {
+        //        break MethodClassName_foo;
+        //      } else {
+        //        do something;
+        //      }
+        //    }
 
-      if(captureMethods){
+        // Constructs a name of the resulting label
+        // using methods class name and method name itself.
+        String[] fQCN = methodDeclarator.getDeclaringType().getClassName().split("\\.");
+        String returnLabel = fQCN[fQCN.length - 1] + "_" + methodDeclarator.name;
+        Java.Block methodBodyBlock = new Java.Block(methodDeclarator.getLocation());
+
+        // DeepCopier implementation which returns break statement with label
+        // instead if return statement.
+        DeepCopier returnStatementReplacer = new DeepCopier() {
+          @Override
+          public Java.BlockStatement copyReturnStatement(Java.ReturnStatement subject) {
+            return new Java.BreakStatement(subject.getLocation(), returnLabel);
+          }
+        };
+        try {
+          // replaces return statements and stores the result into methodBodyBlock
+          methodBodyBlock.addStatements(
+              returnStatementReplacer.copyBlockStatements(methodDeclarator.optionalStatements));
+        } catch (CompileException e) {
+          throw new RuntimeException(e);
+        }
+
+        // wraps method code with replaced return statements into label statement.
+        Java.LabeledStatement labeledStatement =
+            new Java.LabeledStatement(methodDeclarator.getLocation(), returnLabel, methodBodyBlock);
+
+        // Unparse the labeled statement.
         StringWriter writer = new StringWriter();
-        ModifiedUnparseVisitor v = new ModifiedUnparseVisitor(writer);
-//        UnparseVisitor v = new UnparseVisitor(writer);
-
-        md.accept(v);
-        v.close();
+        Unparser unparser = new Unparser(writer);
+        // unparses labeledStatement and stores unparsed code into writer
+        unparser.unparseBlockStatement(labeledStatement);
+        unparser.close();
         writer.flush();
-        methods.put(md.name, writer.getBuffer().toString());
+        methods.put(methodDeclarator.name, writer.getBuffer().toString());
       }
     }
-  }
-
-
-  public static Map<String, String> getMethods(Java.CompilationUnit cu, Class<?> c){
-    MethodGrabbingVisitor visitor = new MethodGrabbingVisitor(c);
-    cu.getPackageMemberTypeDeclarations()[0].accept(visitor.classFinder.comprehensiveVisitor());
-    return visitor.methods;
   }
 
 }

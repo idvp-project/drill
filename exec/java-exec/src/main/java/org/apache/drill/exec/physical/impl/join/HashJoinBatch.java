@@ -19,16 +19,26 @@ package org.apache.drill.exec.physical.impl.join;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import org.apache.drill.common.expression.ExpressionPosition;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
+import org.apache.drill.shaded.guava.com.google.common.collect.Iterables;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.ErrorCollector;
+import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.FieldReference;
+import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.JoinCondition;
@@ -42,31 +52,48 @@ import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.CodeGenerator;
+import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
+import org.apache.drill.exec.expr.fn.impl.ValueVectorHashHelper;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.ExecutorFragmentContext;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.config.HashJoinPOP;
 import org.apache.drill.exec.physical.impl.aggregate.SpilledRecordbatch;
+import org.apache.drill.exec.physical.impl.common.AbstractSpilledPartitionMetadata;
 import org.apache.drill.exec.physical.impl.common.ChainedHashTable;
+import org.apache.drill.exec.physical.impl.common.Comparator;
 import org.apache.drill.exec.physical.impl.common.HashTable;
 import org.apache.drill.exec.physical.impl.common.HashTableConfig;
 import org.apache.drill.exec.physical.impl.common.HashTableStats;
-import org.apache.drill.exec.physical.impl.common.Comparator;
 import org.apache.drill.exec.physical.impl.common.HashPartition;
+import org.apache.drill.exec.physical.impl.common.SpilledState;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
+import org.apache.drill.exec.planner.common.JoinControl;
 import org.apache.drill.exec.record.AbstractBinaryRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.JoinBatchMemoryManager;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.record.RecordBatchSizer;
+import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.util.record.RecordBatchStats;
+import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractContainerVector;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.drill.exec.work.filter.BloomFilter;
+import org.apache.drill.exec.work.filter.BloomFilterDef;
+import org.apache.drill.exec.work.filter.RuntimeFilterDef;
+import org.apache.drill.exec.work.filter.RuntimeFilterReporter;
+
+import static org.apache.drill.exec.record.RecordBatch.IterOutcome.EMIT;
+import static org.apache.drill.exec.record.RecordBatch.IterOutcome.NONE;
+import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK_NEW_SCHEMA;
 
 /**
  *   This class implements the runtime execution for the Hash-Join operator
@@ -83,12 +110,12 @@ import org.apache.calcite.rel.core.JoinRelType;
  *   processed individually (that Build partition should be smaller than the original, hence likely fit whole into
  *   memory to allow probing; if not -- see below).
  *      Processing of each spilled pair is EXACTLY like processing the original Build/Probe incomings. (As a fact,
- *   the {@Link #innerNext() innerNext} method calls itself recursively !!). Thus the spilled build partition is
+ *   the {@link #innerNext()} method calls itself recursively !!). Thus the spilled build partition is
  *   read and divided into new partitions, which in turn may spill again (and again...).
  *   The code tracks these spilling "cycles". Normally any such "again" (i.e. cycle of 2 or greater) is a waste,
  *   indicating that the number of partitions chosen was too small.
  */
-public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
+public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implements RowKeyJoin {
   protected static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HashJoinBatch.class);
 
   /**
@@ -98,9 +125,15 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
 
   // Join type, INNER, LEFT, RIGHT or OUTER
   private final JoinRelType joinType;
+  private boolean semiJoin;
+  private boolean joinIsLeftOrFull;
+  private boolean joinIsRightOrFull;
+  private boolean skipHashTableBuild; // when outer side is empty, and the join is inner or left (see DRILL-6755)
 
   // Join conditions
   private final List<JoinCondition> conditions;
+
+  private RowKeyJoin.RowKeyJoinState rkJoinState = RowKeyJoin.RowKeyJoinState.INITIAL;
 
   // Runtime generated class implementing HashJoinProbe interface
   private HashJoinProbe hashJoinProbe = null;
@@ -113,19 +146,17 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
   private final Set<String> buildJoinColumns;
 
   // Fields used for partitioning
-
   /**
    * The number of {@link HashPartition}s. This is configured via a system option and set in {@link #partitionNumTuning(int, HashJoinMemoryCalculator.BuildSidePartitioning)}.
    */
   private int numPartitions = 1; // must be 2 to the power of bitsInMask
-  private int partitionMask = 0; // numPartitions - 1
-  private int bitsInMask = 0; // number of bits in the MASK
 
   /**
    * The master class used to generate {@link HashTable}s.
    */
   private ChainedHashTable baseHashTable;
-  private boolean buildSideIsEmpty = true;
+  private MutableBoolean buildSideIsEmpty = new MutableBoolean(false);
+  private MutableBoolean probeSideIsEmpty = new MutableBoolean(false);
   private boolean canSpill = true;
   private boolean wasKilled; // a kill was received, may need to clean spilled partns
 
@@ -138,10 +169,20 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
   private int outputRecords;
 
   // Schema of the build side
-  private BatchSchema rightSchema;
+  private BatchSchema buildSchema;
   // Schema of the probe side
   private BatchSchema probeSchema;
 
+  // Whether this HashJoin is used for a row-key based join
+  private boolean isRowKeyJoin = false;
+
+  private JoinControl joinControl;
+
+  // An iterator over the build side hash table (only applicable for row-key joins)
+  private boolean buildComplete = false;
+
+  // indicates if we have previously returned an output batch
+  private boolean firstOutputBatch = true;
 
   private int rightHVColPosition;
   private BufferAllocator allocator;
@@ -150,37 +191,111 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
   private RecordBatch probeBatch;
 
   /**
-   * Flag indicating whether or not the first data holding batch needs to be fetched.
+   * Flag indicating whether or not the first data holding build batch needs to be fetched.
    */
-  private boolean prefetched;
+  private MutableBoolean prefetchedBuild = new MutableBoolean(false);
+  /**
+   * Flag indicating whether or not the first data holding probe batch needs to be fetched.
+   */
+  private MutableBoolean prefetchedProbe = new MutableBoolean(false);
 
   // For handling spilling
   private SpillSet spillSet;
   HashJoinPOP popConfig;
 
-  private int cycleNum = 0; // 1-primary, 2-secondary, 3-tertiary, etc.
   private int originalPartition = -1; // the partition a secondary reads from
   IntVector read_right_HV_vector; // HV vector that was read from the spilled batch
   private int maxBatchesInMemory;
+  private List<String> probeFields = new ArrayList<>(); // keep the same sequence with the bloomFilters
+  private boolean enableRuntimeFilter;
+  private RuntimeFilterReporter runtimeFilterReporter;
+  private ValueVectorHashHelper.Hash64 hash64;
+  private Map<BloomFilter, Integer> bloomFilter2buildId = new HashMap<>();
+  private Map<BloomFilterDef, Integer> bloomFilterDef2buildId = new HashMap<>();
+  private List<BloomFilter> bloomFilters = new ArrayList<>();
 
   /**
    * This holds information about the spilled partitions for the build and probe side.
    */
-  public static class HJSpilledPartition {
-    public int innerSpilledBatches;
-    public String innerSpillFile;
-    public int outerSpilledBatches;
-    public String outerSpillFile;
-    int cycleNum;
-    int origPartn;
-    int prevOrigPartn;
+  public static class HashJoinSpilledPartition extends AbstractSpilledPartitionMetadata {
+    private final int innerSpilledBatches;
+    private final String innerSpillFile;
+    private int outerSpilledBatches;
+    private String outerSpillFile;
+    private boolean updatedOuter = false;
+
+    public HashJoinSpilledPartition(final int cycle,
+                                    final int originPartition,
+                                    final int prevOriginPartition,
+                                    final int innerSpilledBatches,
+                                    final String innerSpillFile) {
+      super(cycle, originPartition, prevOriginPartition);
+
+      this.innerSpilledBatches = innerSpilledBatches;
+      this.innerSpillFile = innerSpillFile;
+    }
+
+    public int getInnerSpilledBatches() {
+      return innerSpilledBatches;
+    }
+
+    public String getInnerSpillFile() {
+      return innerSpillFile;
+    }
+
+    public int getOuterSpilledBatches() {
+      Preconditions.checkState(updatedOuter);
+      return outerSpilledBatches;
+    }
+
+    public String getOuterSpillFile() {
+      Preconditions.checkState(updatedOuter);
+      return outerSpillFile;
+    }
+
+    public void updateOuter(final int outerSpilledBatches, final String outerSpillFile) {
+      Preconditions.checkState(!updatedOuter);
+      updatedOuter = true;
+
+      this.outerSpilledBatches = outerSpilledBatches;
+      this.outerSpillFile = outerSpillFile;
+    }
+
+    @Override
+    public String makeDebugString() {
+      return String.format("Start reading spilled partition %d (prev %d) from cycle %d (with %d-%d batches).",
+        this.getOriginPartition(), this.getPrevOriginPartition(), this.getCycle(), outerSpilledBatches, innerSpilledBatches);
+    }
+  }
+
+  public class HashJoinUpdater implements SpilledState.Updater {
+    @Override
+    public void cleanup() {
+      HashJoinBatch.this.cleanup();
+    }
+
+    @Override
+    public String getFailureMessage() {
+      return "Hash-Join can not partition the inner data any further (probably due to too many join-key duplicates).";
+    }
+
+    @Override
+    public long getMemLimit() {
+      return HashJoinBatch.this.allocator.getLimit();
+    }
+
+    @Override
+    public boolean hasPartitionLimit() {
+      return true;
+    }
   }
 
   /**
    * Queue of spilled partitions to process.
    */
-  private ArrayList<HJSpilledPartition> spilledPartitionsList = new ArrayList<>();
-  private HJSpilledPartition spilledInners[]; // for the outer to find the partition
+  private SpilledState<HashJoinSpilledPartition> spilledState = new SpilledState<>();
+  private HashJoinUpdater spilledStateUpdater = new HashJoinUpdater();
+  private HashJoinSpilledPartition spilledInners[]; // for the outer to find the partition
 
   public enum Metric implements MetricDef {
     NUM_BUCKETS,
@@ -220,123 +335,125 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
   protected void buildSchema() throws SchemaChangeException {
     // We must first get the schemas from upstream operators before we can build
     // our schema.
-    boolean validSchema = sniffNewSchemas();
+    boolean validSchema = prefetchFirstBatchFromBothSides();
 
     if (validSchema) {
       // We are able to construct a valid schema from the upstream data.
       // Setting the state here makes sure AbstractRecordBatch returns OK_NEW_SCHEMA
       state = BatchState.BUILD_SCHEMA;
-    } else {
-      verifyOutcomeToSetBatchState(leftUpstream, rightUpstream);
+
+      if (leftUpstream == OK_NEW_SCHEMA) {
+        probeSchema = left.getSchema();
+      }
+
+      if (rightUpstream == OK_NEW_SCHEMA) {
+        buildSchema = right.getSchema();
+        // position of the new "column" for keeping the hash values (after the real columns)
+        rightHVColPosition = right.getContainer().getNumberOfColumns();
+        // In special cases, when the probe side is empty, and inner/left join - no need for Hash Table
+        skipHashTableBuild = leftUpstream == IterOutcome.NONE && ! joinIsRightOrFull;
+        // We only need the hash tables if we have data on the build side.
+        setupHashTable();
+      }
+
+      try {
+        hashJoinProbe = setupHashJoinProbe();
+      } catch (IOException | ClassTransformationException e) {
+        throw new SchemaChangeException(e);
+      }
     }
 
     // If we have a valid schema, this will build a valid container. If we were unable to obtain a valid schema,
-    // we still need to build a dummy schema. These code handles both cases for us.
+    // we still need to build a dummy schema. This code handles both cases for us.
     setupOutputContainerSchema();
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
-
-    // Initialize the hash join helper context
-    if (rightUpstream == IterOutcome.OK_NEW_SCHEMA) {
-      // We only need the hash tables if we have data on the build side.
-      setupHashTable();
-    }
-
-    try {
-      hashJoinProbe = setupHashJoinProbe();
-    } catch (IOException | ClassTransformationException e) {
-      throw new SchemaChangeException(e);
-    }
-  }
-
-  @Override
-  protected boolean prefetchFirstBatchFromBothSides() {
-    if (leftUpstream != IterOutcome.NONE) {
-      // We can only get data if there is data available
-      leftUpstream = sniffNonEmptyBatch(leftUpstream, LEFT_INDEX, left);
-    }
-
-    if (rightUpstream != IterOutcome.NONE) {
-      // We can only get data if there is data available
-      rightUpstream = sniffNonEmptyBatch(rightUpstream, RIGHT_INDEX, right);
-    }
-
-    buildSideIsEmpty = rightUpstream == IterOutcome.NONE;
-
-    if (verifyOutcomeToSetBatchState(leftUpstream, rightUpstream)) {
-      // For build side, use aggregate i.e. average row width across batches
-      batchMemoryManager.update(LEFT_INDEX, 0);
-      batchMemoryManager.update(RIGHT_INDEX, 0, true);
-
-      logger.debug("BATCH_STATS, incoming left: {}", batchMemoryManager.getRecordBatchSizer(LEFT_INDEX));
-      logger.debug("BATCH_STATS, incoming right: {}", batchMemoryManager.getRecordBatchSizer(RIGHT_INDEX));
-
-      // Got our first batche(s)
-      state = BatchState.FIRST;
-      return true;
-    } else {
-      return false;
-    }
   }
 
   /**
-   * Sniffs all data necessary to construct a schema.
-   * @return True if all the data necessary to construct a schema has been retrieved. False otherwise.
+   * Prefetches the first build side data holding batch.
    */
-  private boolean sniffNewSchemas() {
-    do {
-      // Ask for data until we get a valid result.
-      leftUpstream = next(LEFT_INDEX, left);
-    } while (leftUpstream == IterOutcome.NOT_YET);
-
-    boolean isValidLeft = false;
-
-    switch (leftUpstream) {
-      case OK_NEW_SCHEMA:
-        probeSchema = probeBatch.getSchema();
-      case NONE:
-        isValidLeft = true;
-        break;
-      case OK:
-      case EMIT:
-        throw new IllegalStateException("Unsupported outcome while building schema " + leftUpstream);
-      default:
-        // Termination condition
-    }
-
-    do {
-      // Ask for data until we get a valid result.
-      rightUpstream = next(RIGHT_INDEX, right);
-    } while (rightUpstream == IterOutcome.NOT_YET);
-
-    boolean isValidRight = false;
-
-    switch (rightUpstream) {
-      case OK_NEW_SCHEMA:
-        // We need to have the schema of the build side even when the build side is empty
-        rightSchema = buildBatch.getSchema();
-        // position of the new "column" for keeping the hash values (after the real columns)
-        rightHVColPosition = buildBatch.getContainer().getNumberOfColumns();
-      case NONE:
-        isValidRight = true;
-        break;
-      case OK:
-      case EMIT:
-        throw new IllegalStateException("Unsupported outcome while building schema " + leftUpstream);
-      default:
-        // Termination condition
-    }
-
-    // Left and right sides must return a valid response and both sides cannot be NONE.
-    return (isValidLeft && isValidRight) &&
-      (leftUpstream != IterOutcome.NONE && rightUpstream != IterOutcome.NONE);
+  private void prefetchFirstBuildBatch() {
+    rightUpstream = prefetchFirstBatch(rightUpstream,
+      prefetchedBuild,
+      buildSideIsEmpty,
+      RIGHT_INDEX,
+      buildBatch,
+      () -> {
+        batchMemoryManager.update(RIGHT_INDEX, 0, true);
+        RecordBatchStats.logRecordBatchStats(RecordBatchIOType.INPUT_RIGHT, batchMemoryManager.getRecordBatchSizer(RIGHT_INDEX), getRecordBatchStatsContext());
+      });
   }
 
   /**
-   * Currently in order to accurately predict memory usage for spilling, the first non-empty build side and probe side batches are needed. This method
-   * fetches the first non-empty batch from the left or right side.
+   * Prefetches the first build side data holding batch.
+   */
+  private void prefetchFirstProbeBatch() {
+    leftUpstream =  prefetchFirstBatch(leftUpstream,
+      prefetchedProbe,
+      probeSideIsEmpty,
+      LEFT_INDEX,
+      probeBatch,
+      () -> {
+        batchMemoryManager.update(LEFT_INDEX, 0);
+        RecordBatchStats.logRecordBatchStats(RecordBatchIOType.INPUT_LEFT, batchMemoryManager.getRecordBatchSizer(LEFT_INDEX), getRecordBatchStatsContext());
+      });
+  }
+
+  /**
+   * Used to fetch the first data holding batch from either the build or probe side.
+   * @param outcome The current upstream outcome for either the build or probe side.
+   * @param prefetched A flag indicating if we have already done a prefetch of the first data holding batch for the probe or build side.
+   * @param isEmpty A flag indicating if the probe or build side is empty.
+   * @param index The upstream index of the probe or build batch.
+   * @param batch The probe or build batch itself.
+   * @param memoryManagerUpdate A lambda function to execute the memory manager update for the probe or build batch.
+   * @return The current {@link org.apache.drill.exec.record.RecordBatch.IterOutcome}.
+   */
+  private IterOutcome prefetchFirstBatch(IterOutcome outcome,
+                                         final MutableBoolean prefetched,
+                                         final MutableBoolean isEmpty,
+                                         final int index,
+                                         final RecordBatch batch,
+                                         final Runnable memoryManagerUpdate) {
+    if (prefetched.booleanValue()) {
+      // We have already prefetch the first data holding batch
+      return outcome;
+    }
+
+    // If we didn't retrieve our first data holding batch, we need to do it now.
+    prefetched.setValue(true);
+
+    if (outcome != IterOutcome.NONE) {
+      // We can only get data if there is data available
+      outcome = sniffNonEmptyBatch(outcome, index, batch);
+    }
+
+    isEmpty.setValue(outcome == IterOutcome.NONE); // If we recieved NONE there is no data.
+
+    if (outcome == IterOutcome.OUT_OF_MEMORY) {
+      // We reached a termination state
+      state = BatchState.OUT_OF_MEMORY;
+    } else if (outcome == IterOutcome.STOP) {
+      // We reached a termination state
+      state = BatchState.STOP;
+    } else {
+      // Got our first batch(es)
+      if (spilledState.isFirstCycle()) {
+        // Only collect stats for the first cylce
+        memoryManagerUpdate.run();
+      }
+      state = BatchState.FIRST;
+    }
+
+    return outcome;
+  }
+
+  /**
+   * Currently in order to accurately predict memory usage for spilling, the first non-empty build or probe side batch is needed. This method
+   * fetches the first non-empty batch from the probe or build side.
    * @param curr The current outcome.
-   * @param inputIndex Index specifying whether to work with the left or right input.
-   * @param recordBatch The left or right record batch.
+   * @param inputIndex Index specifying whether to work with the prorbe or build input.
+   * @param recordBatch The probe or build record batch.
    * @return The {@link org.apache.drill.exec.record.RecordBatch.IterOutcome} for the left or right record batch.
    */
   private IterOutcome sniffNonEmptyBatch(IterOutcome curr, int inputIndex, RecordBatch recordBatch) {
@@ -354,8 +471,10 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
         case NOT_YET:
           // We need to try again
           break;
+        case EMIT:
+          throw new UnsupportedOperationException("We do not support " + EMIT);
         default:
-          // Other cases termination conditions
+          // Other cases are termination conditions
           return curr;
       }
     }
@@ -373,7 +492,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
       final double hashTableDoublingFactor = context.getOptions().getDouble(ExecConstants.HASHJOIN_HASH_DOUBLE_FACTOR_KEY);
       final String hashTableCalculatorType = context.getOptions().getString(ExecConstants.HASHJOIN_HASHTABLE_CALC_TYPE_KEY);
 
-      return new HashJoinMemoryCalculatorImpl(safetyFactor, fragmentationFactor, hashTableDoublingFactor, hashTableCalculatorType);
+      return new HashJoinMemoryCalculatorImpl(safetyFactor, fragmentationFactor, hashTableDoublingFactor, hashTableCalculatorType, semiJoin);
     } else {
       return new HashJoinMechanicalMemoryCalculator(maxBatchesInMemory);
     }
@@ -381,29 +500,19 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
 
   @Override
   public IterOutcome innerNext() {
-    if (!prefetched) {
-      // If we didn't retrieve our first data hold batch, we need to do it now.
-      prefetched = true;
-      prefetchFirstBatchFromBothSides();
-
-      // Handle emitting the correct outcome for termination conditions
-      // Use the state set by prefetchFirstBatchFromBothSides to emit the correct termination outcome.
-      switch (state) {
-        case DONE:
-          return IterOutcome.NONE;
-        case STOP:
-          return IterOutcome.STOP;
-        case OUT_OF_MEMORY:
-          return IterOutcome.OUT_OF_MEMORY;
-        default:
-          // No termination condition so continue processing.
-      }
-    }
-
-    if ( wasKilled ) {
+    if (wasKilled) {
+      // We have recieved a kill signal. We need to stop processing.
       this.cleanup();
       super.close();
       return IterOutcome.NONE;
+    }
+
+    prefetchFirstBuildBatch();
+
+    if (rightUpstream.isError()) {
+      // A termination condition was reached while prefetching the first build side data holding batch.
+      // We need to terminate.
+      return rightUpstream;
     }
 
     try {
@@ -412,127 +521,150 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
        */
       if (state == BatchState.FIRST) {
         // Build the hash table, using the build side record batches.
-        executeBuildPhase();
+        final IterOutcome buildExecuteTermination = executeBuildPhase();
+
+        if (buildExecuteTermination != null) {
+          // A termination condition was reached while executing the build phase.
+          // We need to terminate.
+          return buildExecuteTermination;
+        }
+
+        buildComplete = true;
+
+        if (isRowKeyJoin) {
+          // discard the first left batch which was fetched by buildSchema, and get the new
+          // one based on rowkey join
+          leftUpstream = next(left);
+
+          if (leftUpstream == IterOutcome.STOP || rightUpstream == IterOutcome.STOP) {
+            state = BatchState.STOP;
+            return leftUpstream;
+          }
+
+          if (leftUpstream == IterOutcome.OUT_OF_MEMORY || rightUpstream == IterOutcome.OUT_OF_MEMORY) {
+            state = BatchState.OUT_OF_MEMORY;
+            return leftUpstream;
+          }
+        }
+
         // Update the hash table related stats for the operator
         updateStats();
-        // Initialize various settings for the probe side
-        hashJoinProbe.setupHashJoinProbe(probeBatch, this, joinType, leftUpstream, partitions, cycleNum, container, spilledInners, buildSideIsEmpty, numPartitions, rightHVColPosition);
       }
 
       // Try to probe and project, or recursively handle a spilled partition
-      if ( ! buildSideIsEmpty ||  // If there are build-side rows
-           joinType != JoinRelType.INNER) {  // or if this is a left/full outer join
+      if (!buildSideIsEmpty.booleanValue() ||  // If there are build-side rows
+          joinIsLeftOrFull) {  // or if this is a left/full outer join
 
-        // Allocate the memory for the vectors in the output container
-        batchMemoryManager.allocateVectors(container);
-        hashJoinProbe.setTargetOutputCount(batchMemoryManager.getOutputRowCount());
+        prefetchFirstProbeBatch();
 
-        outputRecords = hashJoinProbe.probeAndProject();
-
-        for (final VectorWrapper<?> v : container) {
-          v.getValueVector().getMutator().setValueCount(outputRecords);
-        }
-        container.setRecordCount(outputRecords);
-
-        batchMemoryManager.updateOutgoingStats(outputRecords);
-        if (logger.isDebugEnabled()) {
-          logger.debug("BATCH_STATS, outgoing: {}", new RecordBatchSizer(this));
+        if (leftUpstream.isError() ||
+            ( leftUpstream == NONE && ! joinIsRightOrFull )) {
+          // A termination condition was reached while prefetching the first probe side data holding batch.
+          // We need to terminate.
+          return leftUpstream;
         }
 
-        /* We are here because of one the following
-         * 1. Completed processing of all the records and we are done
-         * 2. We've filled up the outgoing batch to the maximum and we need to return upstream
-         * Either case build the output container's schema and return
-         */
-        if (outputRecords > 0 || state == BatchState.FIRST) {
+        if (!buildSideIsEmpty.booleanValue() || !probeSideIsEmpty.booleanValue()) {
+          // Only allocate outgoing vectors and execute probing logic if there is data
+
           if (state == BatchState.FIRST) {
-            state = BatchState.NOT_FIRST;
+            // Initialize various settings for the probe side
+            hashJoinProbe.setupHashJoinProbe(probeBatch,
+              this,
+              joinType,
+              semiJoin,
+              leftUpstream,
+              partitions,
+              spilledState.getCycle(),
+              container,
+              spilledInners,
+              buildSideIsEmpty.booleanValue(),
+              numPartitions,
+              rightHVColPosition);
           }
 
-          return IterOutcome.OK;
+          // Allocate the memory for the vectors in the output container
+          batchMemoryManager.allocateVectors(container);
+
+          hashJoinProbe.setTargetOutputCount(batchMemoryManager.getOutputRowCount());
+
+          outputRecords = hashJoinProbe.probeAndProject();
+
+          for (final VectorWrapper<?> v : container) {
+            v.getValueVector().getMutator().setValueCount(outputRecords);
+          }
+          container.setRecordCount(outputRecords);
+
+          batchMemoryManager.updateOutgoingStats(outputRecords);
+          RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
+
+          /* We are here because of one the following
+           * 1. Completed processing of all the records and we are done
+           * 2. We've filled up the outgoing batch to the maximum and we need to return upstream
+           * Either case build the output container's schema and return
+           */
+          if (outputRecords > 0 || state == BatchState.FIRST) {
+            state = BatchState.NOT_FIRST;
+
+            return IterOutcome.OK;
+          }
         }
 
         // Free all partitions' in-memory data structures
         // (In case need to start processing spilled partitions)
-        for ( HashPartition partn : partitions ) {
+        for (HashPartition partn : partitions) {
           partn.cleanup(false); // clean, but do not delete the spill files !!
         }
 
         //
         //  (recursively) Handle the spilled partitions, if any
         //
-        if ( !buildSideIsEmpty && !spilledPartitionsList.isEmpty()) {
-          // Get the next (previously) spilled partition to handle as incoming
-          HJSpilledPartition currSp = spilledPartitionsList.remove(0);
+        if (!buildSideIsEmpty.booleanValue()) {
+          while (!spilledState.isEmpty()) {  // "while" is only used for skipping; see "continue" below
 
-          // Create a BUILD-side "incoming" out of the inner spill file of that partition
-          buildBatch = new SpilledRecordbatch(currSp.innerSpillFile, currSp.innerSpilledBatches, context, rightSchema, oContext, spillSet);
-          // The above ctor call also got the first batch; need to update the outcome
-          rightUpstream = ((SpilledRecordbatch) buildBatch).getInitialOutcome();
+            // Get the next (previously) spilled partition to handle as incoming
+            HashJoinSpilledPartition currSp = spilledState.getNextSpilledPartition();
 
-          if ( currSp.outerSpilledBatches > 0 ) {
-            // Create a PROBE-side "incoming" out of the outer spill file of that partition
-            probeBatch = new SpilledRecordbatch(currSp.outerSpillFile, currSp.outerSpilledBatches, context, probeSchema, oContext, spillSet);
-            // The above ctor call also got the first batch; need to update the outcome
-            leftUpstream = ((SpilledRecordbatch) probeBatch).getInitialOutcome();
-          } else {
-            probeBatch = left; // if no outer batch then reuse left - needed for updateIncoming()
-            leftUpstream = IterOutcome.NONE;
-            hashJoinProbe.changeToFinalProbeState();
-          }
-
-          // update the cycle num if needed
-          // The current cycle num should always be one larger than in the spilled partition
-          if (cycleNum == currSp.cycleNum) {
-            cycleNum = 1 + currSp.cycleNum;
-            stats.setLongStat(Metric.SPILL_CYCLE, cycleNum); // update stats
-            // report first spill or memory stressful situations
-            if (cycleNum == 1) { logger.info("Started reading spilled records "); }
-            if (cycleNum == 2) { logger.info("SECONDARY SPILLING "); }
-            if (cycleNum == 3) { logger.warn("TERTIARY SPILLING ");  }
-            if (cycleNum == 4) { logger.warn("QUATERNARY SPILLING "); }
-            if (cycleNum == 5) { logger.warn("QUINARY SPILLING "); }
-            if ( cycleNum * bitsInMask > 20 ) {
-              spilledPartitionsList.add(currSp); // so cleanup() would delete the curr spill files
-              this.cleanup();
-              throw UserException
-                .unsupportedError()
-                .message("Hash-Join can not partition the inner data any further (probably due to too many join-key duplicates)\n"
-                + "On cycle num %d mem available %d num partitions %d", cycleNum, allocator.getLimit(), numPartitions)
-                .build(logger);
+            // If the outer is empty (and it's not a right/full join) - try the next spilled partition
+            if (currSp.outerSpilledBatches == 0 && !joinIsRightOrFull) {
+              continue;
             }
+
+            // Create a BUILD-side "incoming" out of the inner spill file of that partition
+            buildBatch = new SpilledRecordbatch(currSp.innerSpillFile, currSp.innerSpilledBatches, context, buildSchema, oContext, spillSet);
+            // The above ctor call also got the first batch; need to update the outcome
+            rightUpstream = ((SpilledRecordbatch) buildBatch).getInitialOutcome();
+
+            if (currSp.outerSpilledBatches > 0) {
+              // Create a PROBE-side "incoming" out of the outer spill file of that partition
+              probeBatch = new SpilledRecordbatch(currSp.outerSpillFile, currSp.outerSpilledBatches, context, probeSchema, oContext, spillSet);
+              // The above ctor call also got the first batch; need to update the outcome
+              leftUpstream = ((SpilledRecordbatch) probeBatch).getInitialOutcome();
+            } else {
+              probeBatch = left; // if no outer batch then reuse left - needed for updateIncoming()
+              leftUpstream = IterOutcome.NONE;
+              hashJoinProbe.changeToFinalProbeState();
+            }
+
+            spilledState.updateCycle(stats, currSp, spilledStateUpdater);
+            state = BatchState.FIRST;  // TODO need to determine if this is still necessary since prefetchFirstBatchFromBothSides sets this
+
+            prefetchedBuild.setValue(false);
+            prefetchedProbe.setValue(false);
+
+            return innerNext(); // start processing the next spilled partition "recursively"
           }
-          logger.debug("Start reading spilled partition {} (prev {}) from cycle {} (with {}-{} batches)." +
-              " More {} spilled partitions left.",
-            currSp.origPartn, currSp.prevOrigPartn, currSp.cycleNum, currSp.outerSpilledBatches,
-            currSp.innerSpilledBatches, spilledPartitionsList.size());
-
-          state = BatchState.FIRST;  // TODO need to determine if this is still necessary since prefetchFirstBatchFromBothSides sets this
-
-          return innerNext(); // start processing the next spilled partition "recursively"
         }
 
       } else {
         // Our build side is empty, we won't have any matches, clear the probe side
-        if (leftUpstream == IterOutcome.OK_NEW_SCHEMA || leftUpstream == IterOutcome.OK) {
-          for (final VectorWrapper<?> wrapper : probeBatch) {
-            wrapper.getValueVector().clear();
-          }
-          probeBatch.kill(true);
-          leftUpstream = next(HashJoinHelper.LEFT_INPUT, probeBatch);
-          while (leftUpstream == IterOutcome.OK_NEW_SCHEMA || leftUpstream == IterOutcome.OK) {
-            for (final VectorWrapper<?> wrapper : probeBatch) {
-              wrapper.getValueVector().clear();
-            }
-            leftUpstream = next(HashJoinHelper.LEFT_INPUT, probeBatch);
-          }
-        }
+        killAndDrainLeftUpstream();
       }
 
       // No more output records, clean up and return
       state = BatchState.DONE;
 
-      this.cleanup();
+      cleanup();
 
       return IterOutcome.NONE;
     } catch (SchemaChangeException e) {
@@ -542,9 +674,30 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     }
   }
 
+  /**
+   *  In case an upstream data is no longer needed, send a kill and flush any remaining batch
+   *
+   * @param batch probe or build batch
+   * @param upstream which upstream
+   * @param isLeft is it the left or right
+   */
+  private void killAndDrainUpstream(RecordBatch batch, IterOutcome upstream, boolean isLeft) {
+      batch.kill(true);
+      while (upstream == IterOutcome.OK_NEW_SCHEMA || upstream == IterOutcome.OK) {
+        for (final VectorWrapper<?> wrapper : batch) {
+          wrapper.getValueVector().clear();
+        }
+        upstream = next( isLeft ? HashJoinHelper.LEFT_INPUT : HashJoinHelper.RIGHT_INPUT, batch);
+      }
+  }
+  private void killAndDrainLeftUpstream() { killAndDrainUpstream(probeBatch, leftUpstream, true); }
+  private void killAndDrainRightUpstream() { killAndDrainUpstream(buildBatch, rightUpstream, false); }
+
   private void setupHashTable() throws SchemaChangeException {
     final List<Comparator> comparators = Lists.newArrayListWithExpectedSize(conditions.size());
     conditions.forEach(cond->comparators.add(JoinUtils.checkAndReturnSupportedJoinComparator(cond)));
+
+    if ( skipHashTableBuild ) { return; }
 
     // Setup the hash table configuration object
     List<NamedExpression> leftExpr = new ArrayList<>(conditions.size());
@@ -566,11 +719,73 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     }
 
     final HashTableConfig htConfig = new HashTableConfig((int) context.getOptions().getOption(ExecConstants.MIN_HASH_TABLE_SIZE),
-      true, HashTable.DEFAULT_LOAD_FACTOR, rightExpr, leftExpr, comparators);
+      true, HashTable.DEFAULT_LOAD_FACTOR, rightExpr, leftExpr, comparators, joinControl.asInt());
 
     // Create the chained hash table
     baseHashTable =
       new ChainedHashTable(htConfig, context, allocator, buildBatch, probeBatch, null);
+    if (enableRuntimeFilter) {
+      setupHash64(htConfig);
+    }
+  }
+
+  private void setupHash64(HashTableConfig htConfig) throws SchemaChangeException {
+    LogicalExpression[] keyExprsBuild = new LogicalExpression[htConfig.getKeyExprsBuild().size()];
+    ErrorCollector collector = new ErrorCollectorImpl();
+    int i = 0;
+    for (NamedExpression ne : htConfig.getKeyExprsBuild()) {
+      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(ne.getExpr(), buildBatch, collector, context.getFunctionRegistry());
+      if (collector.hasErrors()) {
+        throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
+      }
+      if (expr == null) {
+        continue;
+      }
+      keyExprsBuild[i] = expr;
+      i++;
+    }
+    i = 0;
+    boolean missingField = false;
+    TypedFieldId[] buildSideTypeFieldIds = new TypedFieldId[keyExprsBuild.length];
+    for (NamedExpression ne : htConfig.getKeyExprsBuild()) {
+      SchemaPath schemaPath = (SchemaPath) ne.getExpr();
+      TypedFieldId typedFieldId = buildBatch.getValueVectorId(schemaPath);
+      if (typedFieldId == null) {
+        missingField = true;
+        break;
+      }
+      buildSideTypeFieldIds[i] = typedFieldId;
+      i++;
+    }
+    if (missingField) {
+      logger.info("As some build side key fields not found, runtime filter was disabled");
+      enableRuntimeFilter = false;
+      return;
+    }
+    RuntimeFilterDef runtimeFilterDef = popConfig.getRuntimeFilterDef();
+    List<BloomFilterDef> bloomFilterDefs = runtimeFilterDef.getBloomFilterDefs();
+    for (BloomFilterDef bloomFilterDef : bloomFilterDefs) {
+      String buildField = bloomFilterDef.getBuildField();
+      SchemaPath schemaPath = new SchemaPath(new PathSegment.NameSegment(buildField), ExpressionPosition.UNKNOWN);
+      TypedFieldId typedFieldId = buildBatch.getValueVectorId(schemaPath);
+      if (typedFieldId == null) {
+        missingField = true;
+        break;
+      }
+      int fieldId = typedFieldId.getFieldIds()[0];
+      bloomFilterDef2buildId.put(bloomFilterDef, fieldId);
+    }
+    if (missingField) {
+      logger.info("As some build side join key fields not found, runtime filter was disabled");
+      enableRuntimeFilter = false;
+      return;
+    }
+    ValueVectorHashHelper hashHelper = new ValueVectorHashHelper(buildBatch, context);
+    try {
+      hash64 = hashHelper.getHash64(keyExprsBuild, buildSideTypeFieldIds);
+    } catch (Exception e) {
+      throw new SchemaChangeException("Failed to construct a field's hash64 dynamic codes", e);
+    }
   }
 
   /**
@@ -583,9 +798,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     //  See partitionNumTuning()
     //
 
-    partitionMask = numPartitions - 1; // e.g. 32 --> 0x1F
-    bitsInMask = Integer.bitCount(partitionMask); // e.g. 0x1F -> 5
-
+    spilledState.initialize(numPartitions);
     // Create array for the partitions
     partitions = new HashPartition[numPartitions];
   }
@@ -597,12 +810,34 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     baseHashTable.updateIncoming(buildBatch, probeBatch); // in case we process the spilled files
     // Recreate the partitions every time build is initialized
     for (int part = 0; part < numPartitions; part++ ) {
-      partitions[part] = new HashPartition(context, allocator, baseHashTable, buildBatch, probeBatch,
-        RECORDS_PER_BATCH, spillSet, part, cycleNum, numPartitions);
+      partitions[part] = new HashPartition(context, allocator, baseHashTable, buildBatch, probeBatch, semiJoin,
+        RECORDS_PER_BATCH, spillSet, part, spilledState.getCycle(), numPartitions);
     }
 
-    spilledInners = new HJSpilledPartition[numPartitions];
+    spilledInners = new HashJoinSpilledPartition[numPartitions];
 
+  }
+
+  private void initializeRuntimeFilter() {
+    if (!enableRuntimeFilter) {
+      return;
+    }
+    runtimeFilterReporter = new RuntimeFilterReporter((ExecutorFragmentContext) context);
+    RuntimeFilterDef runtimeFilterDef = popConfig.getRuntimeFilterDef();
+    //RuntimeFilter is not a necessary part of a HashJoin operator, only the query which satisfy the
+    //RuntimeFilterRouter's judgement will have the RuntimeFilterDef.
+    if (runtimeFilterDef != null) {
+      List<BloomFilterDef> bloomFilterDefs = runtimeFilterDef.getBloomFilterDefs();
+      for (BloomFilterDef bloomFilterDef : bloomFilterDefs) {
+        int buildFieldId = bloomFilterDef2buildId.get(bloomFilterDef);
+        int numBytes = bloomFilterDef.getNumBytes();
+        String probeField =  bloomFilterDef.getProbeField();
+        probeFields.add(probeField);
+        BloomFilter bloomFilter = new BloomFilter(numBytes, context.getAllocator());
+        bloomFilters.add(bloomFilter);
+        bloomFilter2buildId.put(bloomFilter, buildFieldId);
+      }
+    }
   }
 
   /**
@@ -644,13 +879,13 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
         buildBatch,
         probeBatch,
         buildJoinColumns,
+        leftUpstream == IterOutcome.NONE, // probeEmpty
         allocator.getLimit(),
         numPartitions,
         RECORDS_PER_BATCH,
         RECORDS_PER_BATCH,
         maxBatchSize,
         maxBatchSize,
-        batchMemoryManager.getOutputRowCount(),
         batchMemoryManager.getOutputBatchSize(),
         HashTable.DEFAULT_LOAD_FACTOR);
 
@@ -689,55 +924,60 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
    *  Execute the BUILD phase; first read incoming and split rows into partitions;
    *  may decide to spill some of the partitions
    *
+   * @return Returns an {@link org.apache.drill.exec.record.RecordBatch.IterOutcome} if a termination condition is reached. Otherwise returns null.
    * @throws SchemaChangeException
    */
-  public void executeBuildPhase() throws SchemaChangeException {
-    if (rightUpstream == IterOutcome.NONE) {
+  public IterOutcome executeBuildPhase() throws SchemaChangeException {
+    if (buildSideIsEmpty.booleanValue()) {
       // empty right
-      return;
+      return null;
+    }
+
+    if ( skipHashTableBuild ) { // No hash table needed - then consume all the right upstream
+      killAndDrainRightUpstream();
+      return null;
     }
 
     HashJoinMemoryCalculator.BuildSidePartitioning buildCalc;
-    boolean firstCycle = cycleNum == 0;
 
     {
       // Initializing build calculator
       // Limit scope of these variables to this block
-      int maxBatchSize = firstCycle? RecordBatch.MAX_BATCH_SIZE: RECORDS_PER_BATCH;
-      boolean hasProbeData = leftUpstream != IterOutcome.NONE;
-      boolean doMemoryCalculation = canSpill && hasProbeData;
+      int maxBatchSize = spilledState.isFirstCycle()? RecordBatch.MAX_BATCH_ROW_COUNT: RECORDS_PER_BATCH;
+      boolean doMemoryCalculation = canSpill && !probeSideIsEmpty.booleanValue();
       HashJoinMemoryCalculator calc = getCalculatorImpl();
 
       calc.initialize(doMemoryCalculation);
       buildCalc = calc.next();
 
-      // We've sniffed first non empty build and probe batches so we have enough information to create a calculator
-      buildCalc.initialize(firstCycle, true, // TODO Fix after growing hash values bug fixed
+      buildCalc.initialize(spilledState.isFirstCycle(), true, // TODO Fix after growing hash values bug fixed
         buildBatch,
         probeBatch,
         buildJoinColumns,
+        probeSideIsEmpty.booleanValue(),
         allocator.getLimit(),
         numPartitions,
         RECORDS_PER_BATCH,
         RECORDS_PER_BATCH,
         maxBatchSize,
         maxBatchSize,
-        batchMemoryManager.getOutputRowCount(),
         batchMemoryManager.getOutputBatchSize(),
         HashTable.DEFAULT_LOAD_FACTOR);
 
-      if (firstCycle && doMemoryCalculation) {
+      if (spilledState.isFirstCycle() && doMemoryCalculation) {
         // Do auto tuning
         buildCalc = partitionNumTuning(maxBatchSize, buildCalc);
       }
     }
 
-    if (firstCycle) {
+    if (spilledState.isFirstCycle()) {
       // Do initial setup only on the first cycle
       delayedSetup();
     }
 
     initializeBuild();
+
+    initializeRuntimeFilter();
 
     // Make the calculator aware of our partitions
     final HashJoinMemoryCalculator.PartitionStatSet partitionStatSet = new HashJoinMemoryCalculator.PartitionStatSet(partitions);
@@ -754,8 +994,8 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
         continue;
 
       case OK_NEW_SCHEMA:
-        if (!rightSchema.equals(buildBatch.getSchema())) {
-          throw SchemaChangeException.schemaChanged("Hash join does not support schema changes in build side.", rightSchema, buildBatch.getSchema());
+        if (!buildSchema.equals(buildBatch.getSchema())) {
+          throw SchemaChangeException.schemaChanged("Hash join does not support schema changes in build side.", buildSchema, buildBatch.getSchema());
         }
         for (HashPartition partn : partitions) { partn.updateBatches(); }
         // Fall through
@@ -768,16 +1008,31 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
         }
         final int currentRecordCount = buildBatch.getRecordCount();
 
-        if ( cycleNum > 0 ) {
+        if (!spilledState.isFirstCycle()) {
           read_right_HV_vector = (IntVector) buildBatch.getContainer().getLast();
+        }
+        //create runtime filter
+        if (spilledState.isFirstCycle() && enableRuntimeFilter) {
+          //create runtime filter and send out async
+          for (BloomFilter bloomFilter : bloomFilter2buildId.keySet()) {
+            int fieldId = bloomFilter2buildId.get(bloomFilter);
+            for (int ind = 0; ind < currentRecordCount; ind++) {
+              long hashCode = hash64.hash64Code(ind, 0, fieldId);
+              bloomFilter.insert(hashCode);
+            }
+          }
         }
 
         // For every record in the build batch, hash the key columns and keep the result
         for (int ind = 0; ind < currentRecordCount; ind++) {
-          int hashCode = ( cycleNum == 0 ) ? partitions[0].getBuildHashCode(ind)
+          int hashCode = spilledState.isFirstCycle() ? partitions[0].getBuildHashCode(ind)
             : read_right_HV_vector.getAccessor().get(ind); // get the hash value from the HV column
-          int currPart = hashCode & partitionMask ;
-          hashCode >>>= bitsInMask;
+          int currPart = hashCode & spilledState.getPartitionMask();
+          hashCode >>>= spilledState.getBitsInMask();
+          // semi-join skips join-key-duplicate rows
+          if ( semiJoin ) {
+
+          }
           // Append the new inner row to the appropriate partition; spill (that partition) if needed
           partitions[currPart].appendInnerRow(buildBatch.getContainer(), ind, hashCode, buildCalc); // may spill if needed
         }
@@ -792,6 +1047,13 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
       rightUpstream = next(HashJoinHelper.RIGHT_INPUT, buildBatch);
     }
 
+    if (spilledState.isFirstCycle() && enableRuntimeFilter) {
+      if (bloomFilter2buildId.size() > 0) {
+        int hashJoinOpId = this.popConfig.getOperatorId();
+        runtimeFilterReporter.sendOut(bloomFilters, probeFields, this.popConfig.getRuntimeFilterDef(), hashJoinOpId);
+      }
+    }
+
     // Move the remaining current batches into their temp lists, or spill
     // them if the partition is spilled. Add the spilled partitions into
     // the spilled partitions list
@@ -801,8 +1063,16 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
       }
     }
 
+    prefetchFirstProbeBatch();
+
+    if (leftUpstream.isError()) {
+      // A termination condition was reached while prefetching the first build side data holding batch.
+      // We need to terminate.
+      return leftUpstream;
+    }
+
     HashJoinMemoryCalculator.PostBuildCalculations postBuildCalc = buildCalc.next();
-    postBuildCalc.initialize();
+    postBuildCalc.initialize(probeSideIsEmpty.booleanValue()); // probeEmpty
 
     //
     //  Traverse all the in-memory partitions' incoming batches, and build their hash tables
@@ -839,29 +1109,32 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
 
     for (HashPartition partn : partitions) {
       if ( partn.isSpilled() ) {
-        HJSpilledPartition sp = new HJSpilledPartition();
-        sp.innerSpillFile = partn.getSpillFile();
-        sp.innerSpilledBatches = partn.getPartitionBatchesCount();
-        sp.cycleNum = cycleNum; // remember the current cycle
-        sp.origPartn = partn.getPartitionNum(); // for debugging / filename
-        sp.prevOrigPartn = originalPartition; // for debugging / filename
-        spilledPartitionsList.add(sp);
+        HashJoinSpilledPartition sp = new HashJoinSpilledPartition(spilledState.getCycle(),
+          partn.getPartitionNum(),
+          originalPartition,
+          partn.getPartitionBatchesCount(),
+          partn.getSpillFile());
 
+        spilledState.addPartition(sp);
         spilledInners[partn.getPartitionNum()] = sp; // for the outer to find the SP later
         partn.closeWriter();
+
+        partn.updateProbeRecordsPerBatch(postBuildCalc.getProbeRecordsPerBatch());
       }
     }
+
+    return null;
   }
 
   private void setupOutputContainerSchema() {
 
-    if (rightSchema != null) {
-      for (final MaterializedField field : rightSchema) {
+    if (buildSchema != null && ! semiJoin ) {
+      for (final MaterializedField field : buildSchema) {
         final MajorType inputType = field.getType();
         final MajorType outputType;
         // If left or full outer join, then the output type must be nullable. However, map types are
         // not nullable so we must exclude them from the check below (see DRILL-2197).
-        if ((joinType == JoinRelType.LEFT || joinType == JoinRelType.FULL) && inputType.getMode() == DataMode.REQUIRED
+        if (joinIsLeftOrFull && inputType.getMode() == DataMode.REQUIRED
             && inputType.getMinorType() != TypeProtos.MinorType.MAP) {
           outputType = Types.overrideMode(inputType, DataMode.OPTIONAL);
         } else {
@@ -882,7 +1155,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
 
         // If right or full outer join then the output type should be optional. However, map types are
         // not nullable so we must exclude them from the check below (see DRILL-2771, DRILL-2197).
-        if ((joinType == JoinRelType.RIGHT || joinType == JoinRelType.FULL) && inputType.getMode() == DataMode.REQUIRED
+        if (joinIsRightOrFull && inputType.getMode() == DataMode.REQUIRED
             && inputType.getMinorType() != TypeProtos.MinorType.MAP) {
           outputType = Types.overrideMode(inputType, DataMode.OPTIONAL);
         } else {
@@ -922,11 +1195,21 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     this.buildBatch = right;
     this.probeBatch = left;
     joinType = popConfig.getJoinType();
+    semiJoin = popConfig.isSemiJoin();
+    joinIsLeftOrFull  = joinType == JoinRelType.LEFT  || joinType == JoinRelType.FULL;
+    joinIsRightOrFull = joinType == JoinRelType.RIGHT || joinType == JoinRelType.FULL;
     conditions = popConfig.getConditions();
     this.popConfig = popConfig;
+    this.isRowKeyJoin = popConfig.isRowKeyJoin();
+    this.joinControl = new JoinControl(popConfig.getJoinControl());
 
     rightExpr = new ArrayList<>(conditions.size());
     buildJoinColumns = Sets.newHashSet();
+    List<SchemaPath> rightConditionPaths = new ArrayList<>();
+    for (int i = 0; i < conditions.size(); i++) {
+      final SchemaPath rightPath = (SchemaPath) conditions.get(i).getRight();
+      rightConditionPaths.add(rightPath);
+    }
 
     for (int i = 0; i < conditions.size(); i++) {
       final SchemaPath rightPath = (SchemaPath) conditions.get(i).getRight();
@@ -964,11 +1247,18 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     final int configuredBatchSize = (int) context.getOptions().getOption(ExecConstants.OUTPUT_BATCH_SIZE_VALIDATOR);
     final double avail_mem_factor = (double) context.getOptions().getOption(ExecConstants.OUTPUT_BATCH_SIZE_AVAIL_MEM_FACTOR_VALIDATOR);
     int outputBatchSize = Math.min(configuredBatchSize, Integer.highestOneBit((int)(allocator.getLimit() * avail_mem_factor)));
-    logger.debug("BATCH_STATS, configured output batch size: {}, allocated memory {}, avail mem factor {}, output batch size: {}",
+
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "configured output batch size: %d, allocated memory %d, avail mem factor %f, output batch size: %d",
       configuredBatchSize, allocator.getLimit(), avail_mem_factor, outputBatchSize);
 
     batchMemoryManager = new JoinBatchMemoryManager(outputBatchSize, left, right, new HashSet<>());
-    logger.debug("BATCH_STATS, configured output batch size: {}", configuredBatchSize);
+
+
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "configured output batch size: %d", configuredBatchSize);
+
+    enableRuntimeFilter = context.getOptions().getOption(ExecConstants.HASHJOIN_ENABLE_RUNTIME_FILTER) && popConfig.getRuntimeFilterDef() != null;
   }
 
   /**
@@ -976,7 +1266,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
    * spillSet.
    */
   private void cleanup() {
-    if ( buildSideIsEmpty ) { return; } // not set up; nothing to clean
+    if ( buildSideIsEmpty.booleanValue() ) { return; } // not set up; nothing to clean
     if ( spillSet.getWriteBytes() > 0 ) {
       stats.setLongStat(Metric.SPILL_MB, // update stats - total MB spilled
         (int) Math.round(spillSet.getWriteBytes() / 1024.0D / 1024.0));
@@ -987,8 +1277,8 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     }
 
     // delete any spill file left in unread spilled partitions
-    while ( ! spilledPartitionsList.isEmpty() ) {
-      HJSpilledPartition sp = spilledPartitionsList.remove(0);
+    while (!spilledState.isEmpty()) {
+      HashJoinSpilledPartition sp = spilledState.getNextSpilledPartition();
       try {
         spillSet.delete(sp.innerSpillFile);
       } catch(IOException e) {
@@ -1027,8 +1317,8 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
    * written is updated at close time in {@link #cleanup()}.
    */
   private void updateStats() {
-    if ( buildSideIsEmpty ) { return; } // no stats when the right side is empty
-    if ( cycleNum > 0 ) { return; } // These stats are only for before processing spilled files
+    if ( buildSideIsEmpty.booleanValue() ) { return; } // no stats when the right side is empty
+    if (!spilledState.isFirstCycle()) { return; } // These stats are only for before processing spilled files
 
     final HashTableStats htStats = new HashTableStats();
     long numSpilled = 0;
@@ -1045,8 +1335,50 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     this.stats.setLongStat(Metric.NUM_RESIZING, htStats.numResizing);
     this.stats.setLongStat(Metric.RESIZING_TIME_MS, htStats.resizingTime);
     this.stats.setLongStat(Metric.NUM_PARTITIONS, numPartitions);
-    this.stats.setLongStat(Metric.SPILL_CYCLE, cycleNum); // Put 0 in case no spill
+    this.stats.setLongStat(Metric.SPILL_CYCLE, spilledState.getCycle()); // Put 0 in case no spill
     this.stats.setLongStat(Metric.SPILLED_PARTITIONS, numSpilled);
+  }
+
+  /**
+   * Get the hash table iterator that is created for the build side of the hash join if
+   * this hash join was instantiated as a row-key join.
+   * @return hash table iterator or null if this hash join was not a row-key join or if it
+   * was a row-key join but the build has not yet completed.
+   */
+  @Override
+  public Pair<ValueVector, Integer> nextRowKeyBatch() {
+    if (buildComplete) {
+      // partition 0 because Row Key Join has only a single partition - no spilling
+      Pair<VectorContainer, Integer> pp = partitions[0].nextBatch();
+      if (pp != null) {
+        VectorWrapper<?> vw = Iterables.get(pp.getLeft(), 0);
+        ValueVector vv = vw.getValueVector();
+        return Pair.of(vv, pp.getRight());
+      }
+    } else if(partitions == null && firstOutputBatch) { //if there is data coming to right(build) side in build Schema stage, use it.
+      firstOutputBatch = false;
+      if ( right.getRecordCount() > 0 ) {
+        VectorWrapper<?> vw = Iterables.get(right, 0);
+        ValueVector vv = vw.getValueVector();
+        return Pair.of(vv, right.getRecordCount()-1);
+      }
+    }
+    return null;
+  }
+
+  @Override    // implement RowKeyJoin interface
+  public boolean hasRowKeyBatch() {
+    return buildComplete;
+  }
+
+  @Override   // implement RowKeyJoin interface
+  public BatchState getBatchState() {
+    return state;
+  }
+
+  @Override  // implement RowKeyJoin interface
+  public void setBatchState(BatchState newState) {
+    state = newState;
   }
 
   @Override
@@ -1074,8 +1406,18 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
   }
 
   @Override
+  public void setRowKeyJoinState(RowKeyJoin.RowKeyJoinState newState) {
+    this.rkJoinState = newState;
+  }
+
+  @Override
+  public RowKeyJoin.RowKeyJoinState getRowKeyJoinState() {
+    return rkJoinState;
+  }
+
+  @Override
   public void close() {
-    if ( cycleNum > 0 ) { // spilling happened
+    if (!spilledState.isFirstCycle()) { // spilling happened
       // In case closing due to cancellation, BaseRootExec.close() does not close the open
       // SpilledRecordBatch "scanners" as it only knows about the original left/right ops.
       killIncoming(false);
@@ -1083,19 +1425,20 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
 
     updateMetrics();
 
-    if (logger.isDebugEnabled()) {
-      logger.debug("BATCH_STATS, incoming aggregate left: batch count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        batchMemoryManager.getNumIncomingBatches(JoinBatchMemoryManager.LEFT_INDEX), batchMemoryManager.getAvgInputBatchSize(JoinBatchMemoryManager.LEFT_INDEX),
-        batchMemoryManager.getAvgInputRowWidth(JoinBatchMemoryManager.LEFT_INDEX), batchMemoryManager.getTotalInputRecords(JoinBatchMemoryManager.LEFT_INDEX));
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "incoming aggregate left: batch count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      batchMemoryManager.getNumIncomingBatches(JoinBatchMemoryManager.LEFT_INDEX), batchMemoryManager.getAvgInputBatchSize(JoinBatchMemoryManager.LEFT_INDEX),
+      batchMemoryManager.getAvgInputRowWidth(JoinBatchMemoryManager.LEFT_INDEX), batchMemoryManager.getTotalInputRecords(JoinBatchMemoryManager.LEFT_INDEX));
 
-      logger.debug("BATCH_STATS, incoming aggregate right: batch count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        batchMemoryManager.getNumIncomingBatches(JoinBatchMemoryManager.RIGHT_INDEX), batchMemoryManager.getAvgInputBatchSize(JoinBatchMemoryManager.RIGHT_INDEX),
-        batchMemoryManager.getAvgInputRowWidth(JoinBatchMemoryManager.RIGHT_INDEX), batchMemoryManager.getTotalInputRecords(JoinBatchMemoryManager.RIGHT_INDEX));
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "incoming aggregate right: batch count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      batchMemoryManager.getNumIncomingBatches(JoinBatchMemoryManager.RIGHT_INDEX), batchMemoryManager.getAvgInputBatchSize(JoinBatchMemoryManager.RIGHT_INDEX),
+      batchMemoryManager.getAvgInputRowWidth(JoinBatchMemoryManager.RIGHT_INDEX), batchMemoryManager.getTotalInputRecords(JoinBatchMemoryManager.RIGHT_INDEX));
 
-      logger.debug("BATCH_STATS, outgoing aggregate: batch count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        batchMemoryManager.getNumOutgoingBatches(), batchMemoryManager.getAvgOutputBatchSize(),
-        batchMemoryManager.getAvgOutputRowWidth(), batchMemoryManager.getTotalOutputRecords());
-    }
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "outgoing aggregate: batch count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      batchMemoryManager.getNumOutgoingBatches(), batchMemoryManager.getAvgOutputBatchSize(),
+      batchMemoryManager.getAvgOutputRowWidth(), batchMemoryManager.getTotalOutputRecords());
 
     this.cleanup();
     super.close();
@@ -1108,8 +1451,13 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
 
     //  No real code generation !!
 
-    final HashJoinProbe hj = context.getImplementationClass(cg);
-    return hj;
+    return context.getImplementationClass(cg);
   }
 
+  @Override
+  public void dump() {
+    logger.error("HashJoinBatch[container={}, left={}, right={}, leftOutcome={}, rightOutcome={}, joinType={}, hashJoinProbe={}," +
+            " rightExpr={}, canSpill={}, buildSchema={}, probeSchema={}]", container, left, right, leftUpstream, rightUpstream,
+        joinType, hashJoinProbe, rightExpr, canSpill, buildSchema, probeSchema);
+  }
 }

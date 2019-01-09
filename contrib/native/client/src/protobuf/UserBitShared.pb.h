@@ -216,7 +216,7 @@ enum CoreOperatorType {
   ORDERED_PARTITION_SENDER = 9,
   PROJECT = 10,
   UNORDERED_RECEIVER = 11,
-  RANGE_SENDER = 12,
+  RANGE_PARTITION_SENDER = 12,
   SCREEN = 13,
   SELECTION_VECTOR_REMOVER = 14,
   STREAMING_AGGREGATE = 15,
@@ -257,11 +257,15 @@ enum CoreOperatorType {
   JSON_WRITER = 50,
   HTPPD_LOG_SUB_SCAN = 51,
   IMAGE_SUB_SCAN = 52,
-  SEQUENCE_SUB_SCAN = 53
+  SEQUENCE_SUB_SCAN = 53,
+  PARTITION_LIMIT = 54,
+  PCAPNG_SUB_SCAN = 55,
+  RUNTIME_FILTER = 56,
+  ROWKEY_JOIN = 57
 };
 bool CoreOperatorType_IsValid(int value);
 const CoreOperatorType CoreOperatorType_MIN = SINGLE_SENDER;
-const CoreOperatorType CoreOperatorType_MAX = SEQUENCE_SUB_SCAN;
+const CoreOperatorType CoreOperatorType_MAX = ROWKEY_JOIN;
 const int CoreOperatorType_ARRAYSIZE = CoreOperatorType_MAX + 1;
 
 const ::google::protobuf::EnumDescriptor* CoreOperatorType_descriptor();
@@ -1118,21 +1122,31 @@ class RecordBatchDef : public ::google::protobuf::Message {
   inline bool carries_two_byte_selection_vector() const;
   inline void set_carries_two_byte_selection_vector(bool value);
 
+  // optional int32 affected_rows_count = 4;
+  inline bool has_affected_rows_count() const;
+  inline void clear_affected_rows_count();
+  static const int kAffectedRowsCountFieldNumber = 4;
+  inline ::google::protobuf::int32 affected_rows_count() const;
+  inline void set_affected_rows_count(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:exec.shared.RecordBatchDef)
  private:
   inline void set_has_record_count();
   inline void clear_has_record_count();
   inline void set_has_carries_two_byte_selection_vector();
   inline void clear_has_carries_two_byte_selection_vector();
+  inline void set_has_affected_rows_count();
+  inline void clear_has_affected_rows_count();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
   ::google::protobuf::RepeatedPtrField< ::exec::shared::SerializedField > field_;
   ::google::protobuf::int32 record_count_;
   bool carries_two_byte_selection_vector_;
+  ::google::protobuf::int32 affected_rows_count_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
 
   friend void  protobuf_AddDesc_UserBitShared_2eproto();
   friend void protobuf_AssignDesc_UserBitShared_2eproto();
@@ -1724,6 +1738,13 @@ class QueryData : public ::google::protobuf::Message {
   inline ::exec::shared::RecordBatchDef* release_def();
   inline void set_allocated_def(::exec::shared::RecordBatchDef* def);
 
+  // optional int32 affected_rows_count = 4;
+  inline bool has_affected_rows_count() const;
+  inline void clear_affected_rows_count();
+  static const int kAffectedRowsCountFieldNumber = 4;
+  inline ::google::protobuf::int32 affected_rows_count() const;
+  inline void set_affected_rows_count(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:exec.shared.QueryData)
  private:
   inline void set_has_query_id();
@@ -1732,15 +1753,18 @@ class QueryData : public ::google::protobuf::Message {
   inline void clear_has_row_count();
   inline void set_has_def();
   inline void clear_has_def();
+  inline void set_has_affected_rows_count();
+  inline void clear_has_affected_rows_count();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
   ::exec::shared::QueryId* query_id_;
   ::exec::shared::RecordBatchDef* def_;
   ::google::protobuf::int32 row_count_;
+  ::google::protobuf::int32 affected_rows_count_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
 
   friend void  protobuf_AddDesc_UserBitShared_2eproto();
   friend void protobuf_AssignDesc_UserBitShared_2eproto();
@@ -4246,6 +4270,28 @@ inline void RecordBatchDef::set_carries_two_byte_selection_vector(bool value) {
   carries_two_byte_selection_vector_ = value;
 }
 
+// optional int32 affected_rows_count = 4;
+inline bool RecordBatchDef::has_affected_rows_count() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void RecordBatchDef::set_has_affected_rows_count() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void RecordBatchDef::clear_has_affected_rows_count() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void RecordBatchDef::clear_affected_rows_count() {
+  affected_rows_count_ = 0;
+  clear_has_affected_rows_count();
+}
+inline ::google::protobuf::int32 RecordBatchDef::affected_rows_count() const {
+  return affected_rows_count_;
+}
+inline void RecordBatchDef::set_affected_rows_count(::google::protobuf::int32 value) {
+  set_has_affected_rows_count();
+  affected_rows_count_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // NamePart
@@ -4790,6 +4836,28 @@ inline void QueryData::set_allocated_def(::exec::shared::RecordBatchDef* def) {
   } else {
     clear_has_def();
   }
+}
+
+// optional int32 affected_rows_count = 4;
+inline bool QueryData::has_affected_rows_count() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void QueryData::set_has_affected_rows_count() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void QueryData::clear_has_affected_rows_count() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void QueryData::clear_affected_rows_count() {
+  affected_rows_count_ = 0;
+  clear_has_affected_rows_count();
+}
+inline ::google::protobuf::int32 QueryData::affected_rows_count() const {
+  return affected_rows_count_;
+}
+inline void QueryData::set_affected_rows_count(::google::protobuf::int32 value) {
+  set_has_affected_rows_count();
+  affected_rows_count_ = value;
 }
 
 // -------------------------------------------------------------------

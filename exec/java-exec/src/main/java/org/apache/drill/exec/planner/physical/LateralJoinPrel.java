@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.planner.physical;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
@@ -72,7 +72,7 @@ public class LateralJoinPrel extends DrillLateralJoinRelBase implements Prel {
     if (getColumn() != null) {
       excludedColumns.add(getColumn());
     }
-    LateralJoinPOP ljoin = new LateralJoinPOP(leftPop, rightPop, jtype.toJoinType(), excludedColumns);
+    LateralJoinPOP ljoin = new LateralJoinPOP(leftPop, rightPop, jtype.toJoinType(), DrillLateralJoinRelBase.IMPLICIT_COLUMN, excludedColumns);
     return creator.addMetadata(this, ljoin);
   }
 

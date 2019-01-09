@@ -37,16 +37,16 @@ public class TestSystemTable extends PlanTestBase {
   public void alterSessionOption() throws Exception {
 
     newTest() //
-      .sqlQuery("select bool_val as bool from sys.options where name = '%s' order by accessibleScopes desc", ExecConstants.JSON_ALL_TEXT_MODE)
+      .sqlQuery("select val as bool from sys.options where name = '%s' order by accessibleScopes desc", ExecConstants.JSON_ALL_TEXT_MODE)
       .baselineColumns("bool")
       .ordered()
-      .baselineValues(false)
+      .baselineValues(String.valueOf(false))
       .go();
 
     test("alter session set `%s` = true", ExecConstants.JSON_ALL_TEXT_MODE);
 
-    newTest() //
-      .sqlQuery("select bool_val as bool from sys.options where name = '%s' order by accessibleScopes desc ", ExecConstants.JSON_ALL_TEXT_MODE)
+    newTest() //Using old table to detect both optionScopes: BOOT & SESSION
+      .sqlQuery("select bool_val as bool from sys.options_old where name = '%s' order by accessibleScopes desc ", ExecConstants.JSON_ALL_TEXT_MODE)
       .baselineColumns("bool")
       .ordered()
       .baselineValues(false)
@@ -74,6 +74,18 @@ public class TestSystemTable extends PlanTestBase {
   @Test
   public void connectionsTable() throws Exception {
     test("select * from sys.connections");
+  }
+
+  @Test
+  public void functionsTable() throws Exception {
+    test("select * from sys.functions");
+  }
+
+  @Test
+  public void testInternalFunctionsTable() throws Exception {
+    String query = "select internal, count(*) from sys.functions group by internal";
+    //Testing a mix of public and internal functions defined in FunctionTemplate
+    assertEquals(2, testSql(query));
   }
 
   @Test

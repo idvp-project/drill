@@ -17,7 +17,7 @@
  */
 package org.apache.drill;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.categories.SqlFunctionTest;
 import org.apache.drill.common.expression.SchemaPath;
@@ -235,7 +235,7 @@ public class TestFunctionsWithTypeExpoQueries extends BaseTestQuery {
     List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = Lists.newArrayList();
     TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
         .setMinorType(TypeProtos.MinorType.BIT)
-        .setMode(TypeProtos.DataMode.OPTIONAL)
+        .setMode(TypeProtos.DataMode.REQUIRED)
         .build();
     expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
 

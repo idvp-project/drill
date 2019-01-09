@@ -20,8 +20,8 @@ package org.apache.drill.exec.physical.config;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.logical.data.JoinCondition;
 import org.apache.drill.exec.physical.base.AbstractJoinPop;
@@ -41,7 +41,7 @@ public class MergeJoinPOP extends AbstractJoinPop{
       @JsonProperty("conditions") List<JoinCondition> conditions,
       @JsonProperty("joinType") JoinRelType joinType
   ) {
-    super(left, right, joinType, null, conditions);
+    super(left, right, joinType, false, null, conditions);
     Preconditions.checkArgument(joinType != null, "Join type is missing!");
     Preconditions.checkArgument(joinType != JoinRelType.FULL,
       "Full outer join not currently supported with Merge Join");

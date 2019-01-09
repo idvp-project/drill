@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.apache.drill.exec.physical.impl.join.JoinUtils;
 import org.apache.drill.exec.physical.impl.join.JoinUtils.JoinCategory;
+import org.apache.drill.exec.planner.logical.DrillJoin;
 import org.apache.drill.exec.planner.logical.DrillJoinRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.calcite.rel.InvalidRelException;
@@ -31,7 +32,7 @@ import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptRuleOperand;
 import org.apache.calcite.util.trace.CalciteTrace;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.slf4j.Logger;
 
 
@@ -45,8 +46,8 @@ public class NestedLoopJoinPrule extends JoinPruleBase {
   }
 
   @Override
-  protected boolean checkPreconditions(DrillJoinRel join, RelNode left, RelNode right,
-      PlannerSettings settings) {
+  protected boolean checkPreconditions(DrillJoin join, RelNode left, RelNode right,
+                                       PlannerSettings settings) {
     JoinRelType type = join.getJoinType();
 
     if (!(type == JoinRelType.INNER || type == JoinRelType.LEFT)) {

@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.project;
 
-import com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -110,4 +110,10 @@ public abstract class ProjectorTemplate implements Projector {
                               @Named("outIndex") int outIndex)
                        throws SchemaChangeException;
 
+  @Override
+  public String toString() {
+    return "Projector[vector2=" + vector2
+        + ", selectionVectorMode=" + svMode
+        + "]";
+  }
 }

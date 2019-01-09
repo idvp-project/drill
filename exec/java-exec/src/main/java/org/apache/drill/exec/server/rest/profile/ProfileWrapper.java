@@ -24,6 +24,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.drill.common.config.DrillConfig;
@@ -39,8 +42,7 @@ import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.rest.WebServer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.CaseFormat;
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.base.CaseFormat;
 
 /**
  * Wrapper class for a {@link #profile query profile}, so it to be presented through web UI.
@@ -65,7 +67,7 @@ public class ProfileWrapper {
     this.profile = profile;
     this.id = profile.hasQueryId() ? profile.getQueryId() : QueryIdHelper.getQueryId(profile.getId());
     //Generating Operator Name map (DRILL-6140)
-    String profileTextPlan = profile.hasPlan() ? profile.getPlan() : "" ;
+    String profileTextPlan = profile.hasPlan()? profile.getPlan(): "";
     generateOpMap(profileTextPlan);
 
     final List<FragmentWrapper> fragmentProfiles = new ArrayList<>();
@@ -303,22 +305,39 @@ public class ProfileWrapper {
     return sb.append("}").toString();
   }
 
+  public Map<String, String> getOptions() {
+    return getOptions(o -> true);
+  }
+
+  public Map<String, String> getSessionOptions() {
+    return getOptions(o -> OptionValue.OptionScope.SESSION == o.getScope());
+  }
+
+  public Map<String, String> getQueryOptions() {
+    return getOptions(o -> OptionValue.OptionScope.QUERY == o.getScope());
+  }
+
   /**
    * Generates sorted map with properties used to display on Web UI,
    * where key is property name and value is property string value.
+   * Options are filtered based on {@link OptionValue.OptionScope}.
+   * <p/>
    * When property value is null, it would be replaced with 'null',
    * this is achieved using {@link String#valueOf(Object)} method.
    * Options will be stored in ascending key order, sorted according
    * to the natural order for the option name represented by {@link String}.
    *
+   * @param filter filter based on {@link OptionValue.OptionScope}
    * @return map with properties names and string values
    */
-  public Map<String, String> getOptions() {
-    final Map<String, String> map = Maps.newTreeMap();
-    for (OptionValue option : options) {
-      map.put(option.getName(), String.valueOf(option.getValue()));
-    }
-    return map;
+  private Map<String, String> getOptions(Predicate<OptionValue> filter) {
+    return options.stream()
+      .filter(filter)
+      .collect(Collectors.toMap(
+        OptionValue::getName,
+        o -> String.valueOf(o.getValue()),
+        (o, n) -> n,
+        TreeMap::new));
   }
 
   /**

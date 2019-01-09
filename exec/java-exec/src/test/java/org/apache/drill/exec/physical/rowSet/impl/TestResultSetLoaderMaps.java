@@ -21,11 +21,14 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -42,7 +45,6 @@ import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.schema.SchemaBuilder;
@@ -57,7 +59,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("c", MinorType.INT)
@@ -65,16 +67,17 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .resumeSchema()
         .add("e", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader rootWriter = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    assertFalse(rsLoader.isProjectionEmpty());
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify structure and schema
 
     assertEquals(5, rsLoader.schemaVersion());
-    TupleMetadata actualSchema = rootWriter.tupleSchema();
+    final TupleMetadata actualSchema = rootWriter.tupleSchema();
     assertEquals(3, actualSchema.size());
     assertTrue(actualSchema.metadata(1).isMap());
     assertEquals(2, actualSchema.metadata("m").mapSchema().size());
@@ -84,11 +87,11 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Write a row the way that clients will do.
 
-    ScalarWriter aWriter = rootWriter.scalar("a");
-    TupleWriter mWriter = rootWriter.tuple("m");
-    ScalarWriter cWriter = mWriter.scalar("c");
-    ScalarWriter dWriter = mWriter.scalar("d");
-    ScalarWriter eWriter = rootWriter.scalar("e");
+    final ScalarWriter aWriter = rootWriter.scalar("a");
+    final TupleWriter mWriter = rootWriter.tuple("m");
+    final ScalarWriter cWriter = mWriter.scalar("c");
+    final ScalarWriter dWriter = mWriter.scalar("d");
+    final ScalarWriter eWriter = rootWriter.scalar("e");
 
     rootWriter.start();
     aWriter.setInt(10);
@@ -102,7 +105,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     try {
       mWriter.addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (final UserException e) {
       // Expected
     }
 
@@ -112,13 +115,15 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Harvest the batch
 
-    RowSet actual = fixture.wrap(rsLoader.harvest());
+    final RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(5, rsLoader.schemaVersion());
     assertEquals(2, actual.rowCount());
+    final MapVector mapVector = (MapVector) actual.container().getValueVector(1).getValueVector();
+    assertEquals(2, mapVector.getAccessor().getValueCount());
 
     // Validate data
 
-    SingleRowSet expected = fixture.rowSetBuilder(schema)
+    final SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(10, mapValue(110, "fred"), "pebbles")
         .addRow(20, mapValue(210, "barney"), "bam-bam")
         .build();
@@ -135,18 +140,18 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testMapEvolution() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("b", MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     assertEquals(3, rsLoader.schemaVersion());
-    RowSetLoader rootWriter = rsLoader.writer();
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
     rootWriter
@@ -170,7 +175,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // the batch starts, one before the first row, and one after
     // the first row.
 
-    TupleWriter mapWriter = rootWriter.tuple("m");
+    final TupleWriter mapWriter = rootWriter.tuple("m");
     mapWriter.addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.REQUIRED));
 
     rsLoader.startBatch();
@@ -187,7 +192,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Validate first batch
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("b", MinorType.VARCHAR)
@@ -211,55 +216,59 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testMapAddition() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     assertEquals(1, rsLoader.schemaVersion());
-    RowSetLoader rootWriter = rsLoader.writer();
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     // Start without the map. Add a map after the first row.
 
     rsLoader.startBatch();
     rootWriter.addRow(10);
 
-    int mapIndex = rootWriter.addColumn(SchemaBuilder.columnSchema("m", MinorType.MAP, DataMode.REQUIRED));
-    TupleWriter mapWriter = rootWriter.tuple(mapIndex);
+    final int mapIndex = rootWriter.addColumn(SchemaBuilder.columnSchema("m", MinorType.MAP, DataMode.REQUIRED));
+    final TupleWriter mapWriter = rootWriter.tuple(mapIndex);
 
     // Add a column to the map with the same name as the top-level column.
     // Verifies that the name spaces are independent.
 
-    int colIndex = mapWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
+    final int colIndex = mapWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
     assertEquals(0, colIndex);
 
     // Ensure metadata was added
 
     assertTrue(mapWriter.tupleSchema().size() == 1);
+    assertSame(mapWriter.tupleSchema(), mapWriter.schema().mapSchema());
+    assertSame(mapWriter.tupleSchema().metadata(colIndex), mapWriter.scalar(colIndex).schema());
 
     rootWriter
       .addRow(20, mapValue("fred"))
       .addRow(30, mapValue("barney"));
 
-    RowSet actual = fixture.wrap(rsLoader.harvest());
+    final RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(3, rsLoader.schemaVersion());
     assertEquals(3, actual.rowCount());
 
-    MapVector mapVector = (MapVector) actual.container().getValueVector(1).getValueVector();
-    MaterializedField mapField = mapVector.getField();
+    final MapVector mapVector = (MapVector) actual.container().getValueVector(1).getValueVector();
+    final MaterializedField mapField = mapVector.getField();
     assertEquals(1, mapField.getChildren().size());
+    assertTrue(mapWriter.scalar(colIndex).schema().schema().isEquivalent(
+        mapField.getChildren().iterator().next()));
 
     // Validate first batch
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("a", MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
-    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+    final SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(10, mapValue(""))
         .addRow(20, mapValue("fred"))
         .addRow(30, mapValue("barney"))
@@ -277,23 +286,23 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testEmptyMapAddition() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     assertEquals(1, rsLoader.schemaVersion());
-    RowSetLoader rootWriter = rsLoader.writer();
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     // Start without the map. Add a map after the first row.
 
     rsLoader.startBatch();
     rootWriter.addRow(10);
 
-    int mapIndex = rootWriter.addColumn(SchemaBuilder.columnSchema("m", MinorType.MAP, DataMode.REQUIRED));
-    TupleWriter mapWriter = rootWriter.tuple(mapIndex);
+    final int mapIndex = rootWriter.addColumn(SchemaBuilder.columnSchema("m", MinorType.MAP, DataMode.REQUIRED));
+    final TupleWriter mapWriter = rootWriter.tuple(mapIndex);
 
     rootWriter
       .addRow(20, mapValue())
@@ -357,7 +366,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testNestedMapsRequired() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m1")
           .add("b", MinorType.VARCHAR)
@@ -366,12 +375,12 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .resumeMap()
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     assertEquals(5, rsLoader.schemaVersion());
-    RowSetLoader rootWriter = rsLoader.writer();
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
     rootWriter.addRow(10, mapValue("b1", mapValue("c1")));
@@ -391,9 +400,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     rsLoader.startBatch();
     rootWriter.addRow(20, mapValue("b2", mapValue("c2")));
 
-    TupleWriter m1Writer = rootWriter.tuple("m1");
+    final TupleWriter m1Writer = rootWriter.tuple("m1");
     m1Writer.addColumn(SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.REQUIRED));
-    TupleWriter m2Writer = m1Writer.tuple("m2");
+    final TupleWriter m2Writer = m1Writer.tuple("m2");
     m2Writer.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.REQUIRED));
 
     rootWriter.addRow(30, mapValue("b3", mapValue("c3", "e3"), "d3"));
@@ -410,7 +419,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     actual = fixture.wrap(rsLoader.harvest());
     assertEquals(9, rsLoader.schemaVersion());
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m1")
           .add("b", MinorType.VARCHAR)
@@ -440,7 +449,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testNestedMapsNullable() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m1")
           .addNullable("b", MinorType.VARCHAR)
@@ -449,11 +458,11 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .resumeMap()
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader rootWriter = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
     rootWriter.addRow(10, mapValue("b1", mapValue("c1")));
@@ -464,8 +473,6 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(10, mapValue("b1", mapValue("c1")))
         .build();
-//    actual.print();
-//    expected.print();
 
     RowSetUtilities.verify(expected, actual);
 
@@ -474,9 +481,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     rsLoader.startBatch();
     rootWriter.addRow(20, mapValue("b2", mapValue("c2")));
 
-    TupleWriter m1Writer = rootWriter.tuple("m1");
+    final TupleWriter m1Writer = rootWriter.tuple("m1");
     m1Writer.addColumn(SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.OPTIONAL));
-    TupleWriter m2Writer = m1Writer.tuple("m2");
+    final TupleWriter m2Writer = m1Writer.tuple("m2");
     m2Writer.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.OPTIONAL));
 
     rootWriter.addRow(30, mapValue("b3", mapValue("c3", "e3"), "d3"));
@@ -491,7 +498,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Validate second batch
 
     actual = fixture.wrap(rsLoader.harvest());
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m1")
           .addNullable("b", MinorType.VARCHAR)
@@ -523,18 +530,18 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testMapWithArray() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .addArray("c", MinorType.INT)
           .addArray("d", MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader rootWriter = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     // Write some rows
 
@@ -543,8 +550,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
       .addRow(10, mapValue(intArray(110, 120, 130),
                            strArray("d1.1", "d1.2", "d1.3", "d1.4")))
       .addRow(20, mapValue(intArray(210), strArray()))
-      .addRow(30, mapValue(intArray(), strArray("d3.1")))
-      ;
+      .addRow(30, mapValue(intArray(), strArray("d3.1")));
 
     // Validate first batch
 
@@ -563,15 +569,13 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     rsLoader.startBatch();
     rootWriter
       .addRow(40, mapValue(intArray(410, 420), strArray("d4.1", "d4.2")))
-      .addRow(50, mapValue(intArray(510), strArray("d5.1")))
-      ;
+      .addRow(50, mapValue(intArray(510), strArray("d5.1")));
 
-    TupleWriter mapWriter = rootWriter.tuple("m");
+    final TupleWriter mapWriter = rootWriter.tuple("m");
     mapWriter.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.REPEATED));
     rootWriter
       .addRow(60, mapValue(intArray(610, 620), strArray("d6.1", "d6.2"), strArray("e6.1", "e6.2")))
-      .addRow(70, mapValue(intArray(710), strArray(), strArray("e7.1", "e7.2")))
-      ;
+      .addRow(70, mapValue(intArray(710), strArray(), strArray("e7.1", "e7.2")));
 
     // Validate first batch. The new array should have been back-filled with
     // empty offsets for the missing rows.
@@ -584,8 +588,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .addRow(70, mapValue(intArray(710), strArray(), strArray("e7.1", "e7.2")))
         .build();
 
-    new RowSetComparison(expected).verifyAndClearAll(actual);
-
+    RowSetUtilities.verify(expected, actual);
     rsLoader.close();
   }
 
@@ -597,7 +600,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testMapWithOverflow() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m1")
           .add("b", MinorType.INT)
@@ -608,14 +611,14 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .resumeMap()
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader rootWriter = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader rootWriter = rsLoader.writer();
 
-    byte value[] = new byte[512];
+    final byte value[] = new byte[512];
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     rsLoader.startBatch();
@@ -626,7 +629,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Our row count should include the overflow row
 
-    int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
+    final int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
     assertEquals(expectedCount + 1, count);
 
     // Loader's row count should include only "visible" rows
@@ -641,6 +644,14 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(expectedCount, result.rowCount());
+
+    // Ensure the odd map vector value count variable is set correctly.
+
+    final MapVector m1Vector = (MapVector) result.container().getValueVector(1).getValueVector();
+    assertEquals(expectedCount, m1Vector.getAccessor().getValueCount());
+    final MapVector m2Vector = (MapVector) m1Vector.getChildByOrdinal(1);
+    assertEquals(expectedCount, m2Vector.getAccessor().getValueCount());
+
     result.clear();
 
     // Next batch should start with the overflow row
@@ -666,30 +677,30 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testMapOverflowWithNewColumn() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("b", MinorType.INT)
           .add("c", MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     assertEquals(4, rsLoader.schemaVersion());
-    RowSetLoader rootWriter = rsLoader.writer();
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     // Can't use the shortcut to populate rows when doing a schema
     // change.
 
-    ScalarWriter aWriter = rootWriter.scalar("a");
-    TupleWriter mWriter = rootWriter.tuple("m");
-    ScalarWriter bWriter = mWriter.scalar("b");
-    ScalarWriter cWriter = mWriter.scalar("c");
+    final ScalarWriter aWriter = rootWriter.scalar("a");
+    final TupleWriter mWriter = rootWriter.tuple("m");
+    final ScalarWriter bWriter = mWriter.scalar("b");
+    final ScalarWriter cWriter = mWriter.scalar("c");
 
-    byte value[] = new byte[512];
+    final byte value[] = new byte[512];
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     rsLoader.startBatch();
@@ -715,7 +726,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     assertEquals(4, rsLoader.schemaVersion());
     assertTrue(schema.isEquivalent(result.schema()));
-    BatchSchema expectedSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
+    final BatchSchema expectedSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
     assertTrue(expectedSchema.isEquivalent(result.batchSchema()));
 
     // Use a reader to validate row-by-row. Too large to create an expected
@@ -759,32 +770,32 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testOverwriteRow() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("b", MinorType.INT)
           .add("c", MinorType.VARCHAR)
         .resumeSchema()
       .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader rootWriter = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     // Can't use the shortcut to populate rows when doing overwrites.
 
-    ScalarWriter aWriter = rootWriter.scalar("a");
-    TupleWriter mWriter = rootWriter.tuple("m");
-    ScalarWriter bWriter = mWriter.scalar("b");
-    ScalarWriter cWriter = mWriter.scalar("c");
+    final ScalarWriter aWriter = rootWriter.scalar("a");
+    final TupleWriter mWriter = rootWriter.tuple("m");
+    final ScalarWriter bWriter = mWriter.scalar("b");
+    final ScalarWriter cWriter = mWriter.scalar("c");
 
     // Write 100,000 rows, overwriting 99% of them. This will cause vector
     // overflow and data corruption if overwrite does not work; but will happily
     // produce the correct result if everything works as it should.
 
-    byte value[] = new byte[512];
+    final byte value[] = new byte[512];
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     rsLoader.startBatch();
@@ -801,10 +812,10 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Verify using a reader.
 
-    RowSet result = fixture.wrap(rsLoader.harvest());
+    final RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(count / 100, result.rowCount());
-    RowSetReader reader = result.reader();
-    TupleReader mReader = reader.tuple("m");
+    final RowSetReader reader = result.reader();
+    final TupleReader mReader = reader.tuple("m");
     int rowId = 1;
     while (reader.next()) {
       assertEquals(rowId * 100, reader.scalar("a").getInt());
@@ -824,7 +835,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testNameSpace() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
           .add("a", MinorType.INT)
@@ -833,21 +844,22 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .resumeMap()
           .resumeSchema()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader rootWriter = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    assertFalse(rsLoader.isProjectionEmpty());
+    final RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
 
     // Write a row the way that clients will do.
 
-    ScalarWriter a1Writer = rootWriter.scalar("a");
-    TupleWriter m1Writer = rootWriter.tuple("m");
-    ScalarWriter a2Writer = m1Writer.scalar("a");
-    TupleWriter m2Writer = m1Writer.tuple("m");
-    ScalarWriter a3Writer = m2Writer.scalar("a");
+    final ScalarWriter a1Writer = rootWriter.scalar("a");
+    final TupleWriter m1Writer = rootWriter.tuple("m");
+    final ScalarWriter a2Writer = m1Writer.scalar("a");
+    final TupleWriter m2Writer = m1Writer.tuple("m");
+    final ScalarWriter a3Writer = m2Writer.scalar("a");
 
     rootWriter.start();
     a1Writer.setInt(11);
@@ -869,15 +881,15 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Verify
 
-    RowSet actual = fixture.wrap(rsLoader.harvest());
+    final RowSet actual = fixture.wrap(rsLoader.harvest());
 
-    SingleRowSet expected = fixture.rowSetBuilder(schema)
+    final SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(11, mapValue(12, mapValue(13)))
         .addRow(21, mapValue(22, mapValue(23)))
         .addRow(31, mapValue(32, mapValue(33)))
         .build();
 
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
     rsLoader.close();
   }
 }

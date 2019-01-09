@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.common;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.exceptions.RetryAfterSpillException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.cache.VectorSerializer;
@@ -61,7 +63,7 @@ import static org.apache.drill.exec.physical.impl.common.HashTable.BATCH_SIZE;
  *    Created to represent an active partition for the Hash-Join operator
  *  (active means: currently receiving data, or its data is being probed; as opposed to fully
  *   spilled partitions).
- *    After all the build/iner data is read for this partition - if all its data is in memory, then
+ *    After all the build/inner data is read for this partition - if all its data is in memory, then
  *  a hash table and a helper are created, and later this data would be probed.
  *    If all this partition's build/inner data was spilled, then it begins to work as an outer
  *  partition (see the flag "processingOuter") -- reusing some of the fields (e.g., currentBatch,
@@ -122,9 +124,11 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
   private List<HashJoinMemoryCalculator.BatchStat> inMemoryBatchStats = Lists.newArrayList();
   private long partitionInMemorySize;
   private long numInMemoryRecords;
+  private boolean updatedRecordsPerBatch = false;
+  private boolean semiJoin;
 
   public HashPartition(FragmentContext context, BufferAllocator allocator, ChainedHashTable baseHashTable,
-                       RecordBatch buildBatch, RecordBatch probeBatch,
+                       RecordBatch buildBatch, RecordBatch probeBatch, boolean semiJoin,
                        int recordsPerBatch, SpillSet spillSet, int partNum, int cycleNum, int numPartitions) {
     this.allocator = allocator;
     this.buildBatch = buildBatch;
@@ -134,6 +138,7 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
     this.partitionNum = partNum;
     this.cycleNum = cycleNum;
     this.numPartitions = numPartitions;
+    this.semiJoin = semiJoin;
 
     try {
       this.hashTable = baseHashTable.createAndSetupHashTable(null);
@@ -148,11 +153,23 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
     } catch (SchemaChangeException sce) {
       throw new IllegalStateException("Unexpected Schema Change while creating a hash table",sce);
     }
-    this.hjHelper = new HashJoinHelper(context, allocator);
+    this.hjHelper = semiJoin ? null : new HashJoinHelper(context, allocator);
     tmpBatchesList = new ArrayList<>();
     if ( numPartitions > 1 ) {
       allocateNewCurrentBatchAndHV();
     }
+  }
+
+  /**
+   * Configure a different temporary batch size when spilling probe batches.
+   * @param newRecordsPerBatch The new temporary batch size to use.
+   */
+  public void updateProbeRecordsPerBatch(int newRecordsPerBatch) {
+    Preconditions.checkArgument(newRecordsPerBatch > 0);
+    Preconditions.checkState(!updatedRecordsPerBatch); // Only allow updating once
+    Preconditions.checkState(processingOuter); // We can only update the records per batch when probing.
+
+    recordsPerBatch = newRecordsPerBatch;
   }
 
   /**
@@ -363,7 +380,7 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
   public int probeForKey(int recordsProcessed, int hashCode) throws SchemaChangeException {
     return hashTable.probeForKey(recordsProcessed, hashCode);
   }
-  public int getStartIndex(int probeIndex) {
+  public Pair<Integer, Boolean> getStartIndex(int probeIndex) {
     /* The current probe record has a key that matches. Get the index
      * of the first row in the build side that matches the current key
      */
@@ -372,15 +389,15 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
      * side. Set the bit corresponding to this index so if we are doing a FULL or RIGHT
      * join we keep track of which records we need to project at the end
      */
-    hjHelper.setRecordMatched(compositeIndex);
-    return compositeIndex;
+    boolean matchExists = hjHelper.setRecordMatched(compositeIndex);
+    return Pair.of(compositeIndex, matchExists);
   }
   public int getNextIndex(int compositeIndex) {
-    // in case of iner rows with duplicate keys, get the next one
+    // in case of inner rows with duplicate keys, get the next one
     return hjHelper.getNextIndex(compositeIndex);
   }
-  public void setRecordMatched(int compositeIndex) {
-    hjHelper.setRecordMatched(compositeIndex);
+  public boolean setRecordMatched(int compositeIndex) {
+    return hjHelper.setRecordMatched(compositeIndex);
   }
   public List<Integer> getNextUnmatchedIndex() {
     return hjHelper.getNextUnmatchedIndex();
@@ -401,6 +418,10 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
 
   public void updateBatches() throws SchemaChangeException {
     hashTable.updateBatches();
+  }
+
+  public Pair<VectorContainer, Integer> nextBatch() {
+    return hashTable.nextBatch();
   }
 
   @Override
@@ -485,7 +506,7 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
       final int currentRecordCount = nextBatch.getRecordCount();
 
       // For every incoming build batch, we create a matching helper batch
-      hjHelper.addNewBatch(currentRecordCount);
+      if ( ! semiJoin ) { hjHelper.addNewBatch(currentRecordCount); }
 
       // Holder contains the global index where the key is hashed into using the hash table
       final IndexPointer htIndex = new IndexPointer();
@@ -508,7 +529,7 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
          * the current record index and batch index. This will be used
          * later when we probe and find a match.
          */
-        hjHelper.setCurrentIndex(htIndex.value, curr /* buildBatchIndex */, recInd);
+        if ( ! semiJoin ) { hjHelper.setCurrentIndex(htIndex.value, curr /* buildBatchIndex */, recInd); }
       }
 
       containers.add(nextBatch);

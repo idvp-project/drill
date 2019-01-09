@@ -20,8 +20,8 @@ package org.apache.drill.exec.ops;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-
-import com.google.common.annotations.VisibleForTesting;
+import java.util.concurrent.TimeUnit;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.compile.CodeCompiler;
@@ -36,6 +36,7 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.testing.ExecutionControls;
 
 import io.netty.buffer.DrillBuf;
+import org.apache.drill.exec.work.filter.RuntimeFilterWritable;
 
 /**
  * Provides the resources required by a non-exchange operator to execute.
@@ -157,6 +158,22 @@ public interface FragmentContext extends UdfUtilities, AutoCloseable {
 
   @Override
   void close();
+  /**
+   * add a RuntimeFilter when the RuntimeFilter receiver belongs to the same MinorFragment
+   * @param runtimeFilter
+   */
+  public void addRuntimeFilter(RuntimeFilterWritable runtimeFilter);
+
+  public RuntimeFilterWritable getRuntimeFilter(long rfIdentifier);
+
+  /**
+   * get the RuntimeFilter with a blocking wait, if the waiting option is enabled
+   * @param rfIdentifier
+   * @param maxWaitTime
+   * @param timeUnit
+   * @return the RFW or null
+   */
+  public RuntimeFilterWritable getRuntimeFilter(long rfIdentifier, long maxWaitTime, TimeUnit timeUnit);
 
   interface ExecutorState {
     /**

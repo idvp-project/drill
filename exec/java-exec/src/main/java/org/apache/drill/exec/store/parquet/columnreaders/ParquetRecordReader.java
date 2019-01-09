@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.store.parquet.columnreaders;
 
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -347,5 +347,15 @@ public class ParquetRecordReader extends AbstractRecordReader {
       assert (numRecordsToRead >= 0);
       return (int) Math.min(numRecordsToRead, footer.getBlocks().get(rowGroupIndex).getRowCount());
     }
+  }
+
+  @Override
+  public String toString() {
+    return "ParquetRecordReader[File=" + hadoopPath.toUri()
+        + ", Row group index=" + rowGroupIndex
+        + ", Records in row group=" + footer.getBlocks().get(rowGroupIndex).getRowCount()
+        + ", Total records read=" + (readState != null ? readState.recordsRead() : -1)
+        + ", Metadata" + footer
+        + "]";
   }
 }
