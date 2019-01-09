@@ -47,7 +47,7 @@ import org.apache.drill.exec.physical.config.TopN;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.sort.SortRecordBatchBuilder;
 import org.apache.drill.exec.physical.impl.svremover.Copier;
-import org.apache.drill.exec.physical.impl.svremover.GenericSV4Copier;
+import org.apache.drill.exec.physical.impl.svremover.GenericCopierFactory;
 import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -66,7 +66,7 @@ import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractContainerVector;
 
-import com.google.common.base.Stopwatch;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import com.sun.codemodel.JConditional;
 import com.sun.codemodel.JExpr;
 
@@ -74,6 +74,7 @@ import static org.apache.drill.exec.record.RecordBatch.IterOutcome.EMIT;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.NONE;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK_NEW_SCHEMA;
+import static org.apache.drill.exec.record.RecordBatch.IterOutcome.STOP;
 
 /**
  * Operator Batch which implements the TopN functionality. It is more efficient than (sort + limit) since unlike sort
@@ -137,23 +138,11 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
 
   @Override
   public void buildSchema() throws SchemaChangeException {
-    VectorContainer c = new VectorContainer(oContext);
     IterOutcome outcome = next(incoming);
     switch (outcome) {
       case OK:
       case OK_NEW_SCHEMA:
         for (VectorWrapper<?> w : incoming) {
-          // TODO: Not sure why the special handling for AbstractContainerVector is needed since creation of child
-          // vectors is taken care correctly if the field is retrieved from incoming vector and passed to it rather than
-          // creating a new Field instance just based on name and type.
-          @SuppressWarnings("resource")
-          ValueVector v = c.addOrGet(w.getField());
-          if (v instanceof AbstractContainerVector) {
-            w.getValueVector().makeTransferPair(v);
-            v.clear();
-          }
-        }
-        for (VectorWrapper<?> w : c) {
           @SuppressWarnings("resource")
           ValueVector v = container.addOrGet(w.getField());
           if (v instanceof AbstractContainerVector) {
@@ -197,7 +186,7 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
     // Reset the TopN state for next iteration
     resetTopNState();
 
-    try{
+    try {
       boolean incomingHasSv2 = false;
       switch (incoming.getSchema().getSelectionVectorMode()) {
         case NONE: {
@@ -360,7 +349,7 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
     SelectionVector4 selectionVector4 = priorityQueue.getSv4();
     SimpleSV4RecordBatch batch = new SimpleSV4RecordBatch(c, selectionVector4, context);
     if (copier == null) {
-      copier = GenericSV4Copier.createCopier(batch, newContainer, null);
+      copier = GenericCopierFactory.createAndSetupCopier(batch, newContainer, null);
     } else {
       for (VectorWrapper<?> i : batch) {
 
@@ -390,8 +379,8 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
   private PriorityQueue createNewPriorityQueue(VectorAccessible batch, int limit)
     throws SchemaChangeException, ClassTransformationException, IOException {
     return createNewPriorityQueue(
-      mainMapping, leftMapping, rightMapping, context.getOptions(), context.getFunctionRegistry(), context.getCompiler(),
-      config.getOrderings(), batch, unionTypeEnabled, codegenDump, limit, oContext.getAllocator(), schema.getSelectionVectorMode());
+      mainMapping, leftMapping, rightMapping, config.getOrderings(), batch, unionTypeEnabled,
+      codegenDump, limit, oContext.getAllocator(), schema.getSelectionVectorMode(), context);
   }
 
   public static MappingSet createMainMappingSet() {
@@ -408,10 +397,11 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
 
   public static PriorityQueue createNewPriorityQueue(
     MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping,
-    OptionSet optionSet, FunctionLookupContext functionLookupContext, CodeCompiler codeCompiler,
     List<Ordering> orderings, VectorAccessible batch, boolean unionTypeEnabled, boolean codegenDump,
-    int limit, BufferAllocator allocator, SelectionVectorMode mode)
+    int limit, BufferAllocator allocator, SelectionVectorMode mode, FragmentContext context)
           throws ClassTransformationException, IOException, SchemaChangeException {
+    OptionSet optionSet = context.getOptions();
+    FunctionLookupContext functionLookupContext = context.getFunctionRegistry();
     CodeGenerator<PriorityQueue> cg = CodeGenerator.get(PriorityQueue.TEMPLATE_DEFINITION, optionSet);
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
@@ -449,7 +439,7 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
     g.rotateBlock();
     g.getEvalBlock()._return(JExpr.lit(0));
 
-    PriorityQueue q = codeCompiler.createInstance(cg);
+    PriorityQueue q = context.getImplementationClass(cg);
     q.init(limit, allocator, mode == BatchSchema.SelectionVectorMode.TWO_BYTE);
     return q;
   }
@@ -468,7 +458,7 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
     @SuppressWarnings("resource")
     final SelectionVector4 selectionVector4 = priorityQueue.getSv4();
     final SimpleSV4RecordBatch batch = new SimpleSV4RecordBatch(c, selectionVector4, context);
-    copier = GenericSV4Copier.createCopier(batch, newContainer, null);
+    copier = GenericCopierFactory.createAndSetupCopier(batch, newContainer, null);
     @SuppressWarnings("resource")
     SortRecordBatchBuilder builder = new SortRecordBatchBuilder(oContext.getAllocator());
     try {
@@ -704,5 +694,11 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
     public SelectionVector4 getSelectionVector4() {
       return sv4;
     }
+  }
+
+  @Override
+  public void dump() {
+    logger.error("TopNBatch[container={}, config={}, schema={}, sv4={}, countSincePurge={}, " +
+        "batchCount={}, recordCount={}]", container, config, schema, sv4, countSincePurge, batchCount, recordCount);
   }
 }

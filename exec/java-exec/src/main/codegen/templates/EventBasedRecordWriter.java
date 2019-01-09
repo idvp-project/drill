@@ -23,8 +23,8 @@ import org.apache.drill.exec.planner.physical.WriterPrel;
 
 package org.apache.drill.exec.store;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.planner.physical.WriterPrel;
@@ -135,6 +135,9 @@ public class EventBasedRecordWriter {
 
       case LIST:
         return recordWriter.getNewRepeatedListConverter(fieldId, fieldName, reader);
+
+      case NULL:
+        return recordWriter.getNewNullableIntConverter(fieldId, fieldName, reader);
 
         <#list vv.types as type>
         <#list type.minor as minor>

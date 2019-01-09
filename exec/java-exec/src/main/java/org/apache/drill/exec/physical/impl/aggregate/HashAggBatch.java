@@ -18,10 +18,12 @@
 package org.apache.drill.exec.physical.impl.aggregate;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.exec.planner.physical.AggPrelBase;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -59,6 +61,8 @@ import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
+import org.apache.drill.exec.util.record.RecordBatchStats;
+import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -158,9 +162,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       }
 
       updateIncomingStats();
-      if (logger.isDebugEnabled()) {
-        logger.debug("BATCH_STATS, incoming: {}", getRecordBatchSizer());
-      }
+      RecordBatchStats.logRecordBatchStats(RecordBatchIOType.INPUT, getRecordBatchSizer(), getRecordBatchStatsContext());
     }
   }
 
@@ -185,8 +187,28 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
 
     // get the output batch size from config.
     int configuredBatchSize = (int) context.getOptions().getOption(ExecConstants.OUTPUT_BATCH_SIZE_VALIDATOR);
+
+    // If needed - reduce the size to allow enough batches in the available memory
+    long memAvail = oContext.getAllocator().getLimit();
+    long minBatchesPerPartition = context.getOptions().getOption(ExecConstants.HASHAGG_MIN_BATCHES_PER_PARTITION_VALIDATOR);
+    long minBatchesNeeded = 2 * minBatchesPerPartition; // 2 - to cover overheads, etc.
+    boolean fallbackEnabled = context.getOptions().getOption(ExecConstants.HASHAGG_FALLBACK_ENABLED_KEY).bool_val;
+    final AggPrelBase.OperatorPhase phase = popConfig.getAggPhase();
+
+    if ( phase.is2nd() && !fallbackEnabled ) {
+      minBatchesNeeded *= 2;  // 2nd phase (w/o fallback) needs at least 2 partitions
+    }
+    if ( configuredBatchSize > memAvail / minBatchesNeeded ) { // no cast - memAvail may be bigger than max-int
+      int reducedBatchSize = (int)(memAvail / minBatchesNeeded);
+      logger.trace("Reducing configured batch size from: {} to: {}, due to Mem limit: {}",
+        configuredBatchSize, reducedBatchSize, memAvail);
+      configuredBatchSize = reducedBatchSize;
+    }
+
     hashAggMemoryManager = new HashAggMemoryManager(configuredBatchSize);
-    logger.debug("BATCH_STATS, configured output batch size: {}", configuredBatchSize);
+
+      RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+        "configured output batch size: %d", configuredBatchSize);
 
     columnMapping = CaseInsensitiveMap.newHashMap();
   }
@@ -411,6 +433,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
     agg.setup(popConfig, htConfig, context, oContext, incoming, this,
         aggrExprs,
         cgInner.getWorkspaceTypes(),
+        cgInner,
         groupByOutFieldIds,
         this.container, extraNonNullColumns * 8 /* sizeof(BigInt) */);
 
@@ -456,15 +479,15 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
     stats.setLongStat(HashAggTemplate.Metric.AVG_OUTPUT_ROW_BYTES, hashAggMemoryManager.getAvgOutputRowWidth());
     stats.setLongStat(HashAggTemplate.Metric.OUTPUT_RECORD_COUNT, hashAggMemoryManager.getTotalOutputRecords());
 
-    if (logger.isDebugEnabled()) {
-      logger.debug("BATCH_STATS, incoming aggregate: count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        hashAggMemoryManager.getNumIncomingBatches(), hashAggMemoryManager.getAvgInputBatchSize(),
-        hashAggMemoryManager.getAvgInputRowWidth(), hashAggMemoryManager.getTotalInputRecords());
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "incoming aggregate: count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      hashAggMemoryManager.getNumIncomingBatches(), hashAggMemoryManager.getAvgInputBatchSize(),
+      hashAggMemoryManager.getAvgInputRowWidth(), hashAggMemoryManager.getTotalInputRecords());
 
-      logger.debug("BATCH_STATS, outgoing aggregate: count : {}, avg bytes : {},  avg row bytes : {}, record count : {}",
-        hashAggMemoryManager.getNumOutgoingBatches(), hashAggMemoryManager.getAvgOutputBatchSize(),
-        hashAggMemoryManager.getAvgOutputRowWidth(), hashAggMemoryManager.getTotalOutputRecords());
-    }
+    RecordBatchStats.logRecordBatchStats(getRecordBatchStatsContext(),
+      "outgoing aggregate: count : %d, avg bytes : %d,  avg row bytes : %d, record count : %d",
+      hashAggMemoryManager.getNumOutgoingBatches(), hashAggMemoryManager.getAvgOutputBatchSize(),
+      hashAggMemoryManager.getAvgOutputRowWidth(), hashAggMemoryManager.getTotalOutputRecords());
   }
   @Override
   public void close() {
@@ -479,5 +502,13 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
   protected void killIncoming(boolean sendUpstream) {
     wasKilled = true;
     incoming.kill(sendUpstream);
+  }
+
+  @Override
+  public void dump() {
+    logger.error("HashAggBatch[container={}, aggregator={}, groupByOutFieldIds={}, aggrOutFieldIds={}, " +
+            "incomingSchema={}, wasKilled={}, numGroupByExprs={}, numAggrExprs={}, popConfig={}]",
+        container, aggregator, Arrays.toString(groupByOutFieldIds), Arrays.toString(aggrOutFieldIds), incomingSchema,
+        wasKilled, numGroupByExprs, numAggrExprs, popConfig);
   }
 }

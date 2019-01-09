@@ -40,9 +40,9 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.io.Resources;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.io.Resources;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -55,14 +55,15 @@ public class KafkaMessageGenerator {
   public KafkaMessageGenerator (final String broker, Class<?> valueSerializer) {
     producerProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, broker);
     producerProperties.put(ProducerConfig.ACKS_CONFIG, "all");
-    producerProperties.put(ProducerConfig.RETRIES_CONFIG, 0);
+    producerProperties.put(ProducerConfig.RETRIES_CONFIG, 3);
     producerProperties.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
     producerProperties.put(ProducerConfig.LINGER_MS_CONFIG, 0);
     producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
-    producerProperties.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 1000);
+    producerProperties.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
     producerProperties.put(ProducerConfig.CLIENT_ID_CONFIG, "drill-test-kafka-client");
     producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
     producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
+    producerProperties.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true); //So that retries do not cause duplicates
   }
 
   public void populateAvroMsgIntoKafka(String topic, int numMsg) throws IOException {

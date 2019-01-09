@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.planner.common;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -41,6 +41,8 @@ import java.util.List;
 
 
 public abstract class DrillLateralJoinRelBase extends Correlate implements DrillRelNode {
+
+  final public static String IMPLICIT_COLUMN = DrillRelOptUtil.IMPLICIT_COLUMN;
 
   final private static double CORRELATE_MEM_COPY_COST = DrillCostBase.MEMORY_TO_CPU_RATIO * DrillCostBase.BASE_CPU_COST;
   final public boolean excludeCorrelateColumn;
@@ -71,7 +73,7 @@ public abstract class DrillLateralJoinRelBase extends Correlate implements Drill
       case LEFT:
       case INNER:
         return constructRowType(SqlValidatorUtil.deriveJoinRowType(left.getRowType(),
-          right.getRowType(), joinType.toJoinType(),
+          removeImplicitField(right.getRowType()), joinType.toJoinType(),
           getCluster().getTypeFactory(), null,
           ImmutableList.of()));
       case ANTI:
@@ -116,6 +118,21 @@ public abstract class DrillLateralJoinRelBase extends Correlate implements Drill
       return getCluster().getTypeFactory().createStructType(fields, fieldNames);
     }
     return inputRowType;
+  }
+
+  public RelDataType removeImplicitField(RelDataType inputRowType) {
+    List<RelDataType> fields = new ArrayList<>();
+    List<String> fieldNames = new ArrayList<>();
+
+    for (RelDataTypeField field : inputRowType.getFieldList()) {
+      if (field.getName().equals(IMPLICIT_COLUMN)) {
+        continue;
+      }
+      fieldNames.add(field.getName());
+      fields.add(field.getType());
+    }
+
+    return getCluster().getTypeFactory().createStructType(fields, fieldNames);
   }
 
   @Override

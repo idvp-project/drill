@@ -27,15 +27,16 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import io.netty.util.internal.PlatformDependent;
 import org.apache.drill.common.exceptions.DrillConfigurationException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.reflections.util.ClasspathHelper;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
@@ -46,7 +47,7 @@ public class DrillConfig extends NestedConfig {
   private final ImmutableList<String> startupArguments;
 
   @SuppressWarnings("restriction")
-  private static final long MAX_DIRECT_MEMORY = sun.misc.VM.maxDirectMemory();
+  private static final long MAX_DIRECT_MEMORY = PlatformDependent.maxDirectMemory();
 
   @VisibleForTesting
   public DrillConfig(Config config) {

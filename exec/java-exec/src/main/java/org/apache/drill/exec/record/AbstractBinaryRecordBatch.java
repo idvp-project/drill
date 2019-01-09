@@ -76,12 +76,12 @@ public abstract class AbstractBinaryRecordBatch<T extends PhysicalOperator> exte
   }
 
   protected boolean verifyOutcomeToSetBatchState(IterOutcome leftOutcome, IterOutcome rightOutcome) {
-    if (leftOutcome == IterOutcome.STOP || rightUpstream == IterOutcome.STOP) {
+    if (leftOutcome == IterOutcome.STOP || rightOutcome == IterOutcome.STOP) {
       state = BatchState.STOP;
       return false;
     }
 
-    if (leftOutcome == IterOutcome.OUT_OF_MEMORY || rightUpstream == IterOutcome.OUT_OF_MEMORY) {
+    if (leftOutcome == IterOutcome.OUT_OF_MEMORY || rightOutcome == IterOutcome.OUT_OF_MEMORY) {
       state = BatchState.OUT_OF_MEMORY;
       return false;
     }
@@ -97,6 +97,7 @@ public abstract class AbstractBinaryRecordBatch<T extends PhysicalOperator> exte
       throw new IllegalStateException("Unexpected IterOutcome.EMIT received either from left or right side in " +
         "buildSchema phase");
     }
+
     return true;
   }
 
@@ -112,7 +113,7 @@ public abstract class AbstractBinaryRecordBatch<T extends PhysicalOperator> exte
     return verifyOutcomeToSetBatchState(leftUpstream, rightUpstream);
   }
 
-  /*
+  /**
    * Checks for the operator specific early terminal condition.
    * @return true if the further processing can stop.
    *         false if the further processing is needed.

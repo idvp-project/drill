@@ -19,7 +19,6 @@ package org.apache.drill.exec.server.rest;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.Maps;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.exceptions.UserRemoteException;
@@ -115,12 +114,8 @@ public class QueryWrapper {
       throw new UserRemoteException(webUserConnection.getError());
     }
 
-    if (webUserConnection.results.isEmpty()) {
-      webUserConnection.results.add(Maps.<String, String>newHashMap());
-    }
-
     // Return the QueryResult.
-    return new QueryResult(queryId, webUserConnection.columns, webUserConnection.results);
+    return new QueryResult(queryId, webUserConnection, webUserConnection.results);
   }
 
   //Detect possible excess heap
@@ -132,12 +127,15 @@ public class QueryWrapper {
     private final String queryId;
     public final Collection<String> columns;
     public final List<Map<String, String>> rows;
+    public final List<String> metadata;
 
-    public QueryResult(QueryId queryId, Collection<String> columns, List<Map<String, String>> rows) {
-      this.queryId = QueryIdHelper.getQueryId(queryId);
-      this.columns = columns;
-      this.rows = rows;
-    }
+    //DRILL-6847:  Modified the constructor so that the method has access to all the properties in webUserConnection
+    public QueryResult(QueryId queryId, WebUserConnection webUserConnection, List<Map<String, String>> rows) {
+        this.queryId = QueryIdHelper.getQueryId(queryId);
+        this.columns = webUserConnection.columns;
+        this.metadata = webUserConnection.metadata;
+        this.rows = rows;
+      }
 
     public String getQueryId() {
       return queryId;

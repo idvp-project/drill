@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.store.pcap;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -395,5 +395,10 @@ public class PcapRecordReader extends AbstractRecordReader {
       ((NullableVarCharVector.Mutator) pci.vv.getMutator())
           .setSafe(count, value, 0, value.remaining());
     }
+  }
+
+  @Override
+  public String toString() {
+    return "PcapRecordReader[File=" + pathToFile.toUri() + "]";
   }
 }

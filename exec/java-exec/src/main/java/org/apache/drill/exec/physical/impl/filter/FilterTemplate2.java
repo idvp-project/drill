@@ -67,11 +67,18 @@ public abstract class FilterTemplate2 implements Filterer {
     if (! outgoingSelectionVector.allocateNewSafe(recordCount)) {
       throw new OutOfMemoryException("Unable to allocate filter batch");
     }
+
     switch(svMode){
     case NONE:
+      // Set the actual recordCount in outgoing selection vector to help SVRemover copy the entire
+      // batch if possible at once rather than row-by-row
+      outgoingSelectionVector.setBatchActualRecordCount(recordCount);
       filterBatchNoSV(recordCount);
       break;
     case TWO_BYTE:
+      // Set the actual recordCount in outgoing selection vector to help SVRemover copy the entire
+      // batch if possible at once rather than row-by-row
+      outgoingSelectionVector.setBatchActualRecordCount(incomingSelectionVector.getBatchActualRecordCount());
       filterBatchSV2(recordCount);
       break;
     default:
@@ -112,4 +119,11 @@ public abstract class FilterTemplate2 implements Filterer {
                                  @Named("outIndex") int outIndex)
                           throws SchemaChangeException;
 
+  @Override
+  public String toString() {
+    return "FilterTemplate2[outgoingSelectionVector=" + outgoingSelectionVector
+        + ", incomingSelectionVector=" + incomingSelectionVector
+        + ", svMode=" + svMode
+        + "]";
+  }
 }

@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.log;
 
-import com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -760,5 +760,12 @@ public class LogRecordReader extends AbstractRecordReader {
       }
       reader = null;
     }
+  }
+
+  @Override
+  public String toString() {
+    return "LogRecordReader[File=" + fileWork.getPath()
+        + ", Line=" + rowIndex
+        + "]";
   }
 }

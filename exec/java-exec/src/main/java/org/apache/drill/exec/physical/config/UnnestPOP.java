@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.google.common.collect.Iterators;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractBase;
@@ -30,6 +29,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.impl.unnest.UnnestRecordBatch;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -39,6 +39,9 @@ import static org.apache.drill.exec.proto.UserBitShared.CoreOperatorType.UNNEST_
 public class UnnestPOP extends AbstractBase implements Leaf {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnnestPOP.class);
 
+  @JsonProperty("implicitColumn")
+  private String implicitColumn;
+
   private SchemaPath column;
 
   @JsonIgnore
@@ -47,21 +50,23 @@ public class UnnestPOP extends AbstractBase implements Leaf {
   @JsonCreator
   public UnnestPOP(
       @JsonProperty("child") PhysicalOperator child, // Operator with incoming record batch
-      @JsonProperty("column") SchemaPath column) {
+      @JsonProperty("column") SchemaPath column,
+      @JsonProperty("implicitColumn") String implicitColumn) {
     this.column = column;
+    this.implicitColumn = implicitColumn;
   }
 
   @Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) throws ExecutionSetupException {
     assert children.isEmpty();
-    UnnestPOP newUnnest = new UnnestPOP(null, column);
+    UnnestPOP newUnnest = new UnnestPOP(null, column, this.implicitColumn);
     newUnnest.addUnnestBatch(this.unnestBatch);
     return newUnnest;
   }
 
   @Override
   public Iterator<PhysicalOperator> iterator() {
-    return Iterators.emptyIterator();
+    return Collections.emptyIterator();
   }
 
   public SchemaPath getColumn() {
@@ -81,6 +86,9 @@ public class UnnestPOP extends AbstractBase implements Leaf {
   public UnnestRecordBatch getUnnestBatch() {
     return this.unnestBatch;
   }
+
+  @JsonProperty("implicitColumn")
+  public String getImplicitColumn() { return this.implicitColumn; }
 
   @Override
   public int getOperatorType() {

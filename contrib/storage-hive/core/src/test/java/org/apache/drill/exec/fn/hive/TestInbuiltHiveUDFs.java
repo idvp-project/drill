@@ -33,7 +33,7 @@ import org.apache.drill.test.TestBuilder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 @Category({SlowTest.class, HiveStorageTest.class})
 public class TestInbuiltHiveUDFs extends HiveTestBase {
@@ -181,6 +181,19 @@ public class TestInbuiltHiveUDFs extends HiveTestBase {
         .unOrdered()
         .baselineColumns("UTC_TIMESTAMP")
         .baselineValues(LocalDateTime.parse("1970-01-01T08:00:00.0"))
+        .go();
+  }
+
+  @Test // DRILL-4456
+  public void testTranslate3() throws Exception {
+    testBuilder()
+        .sqlQuery("SELECT translate(string_field, 's', 'S') as ts," +
+            "translate(varchar_field, 'v', 'V') as tv,\n" +
+            "translate('literal', 'l', 'L') as tl from hive.readtest")
+        .unOrdered()
+        .baselineColumns("ts", "tv", "tl")
+        .baselineValues("Stringfield", "Varcharfield", "LiteraL")
+        .baselineValues(null, null, "LiteraL")
         .go();
   }
 

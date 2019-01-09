@@ -17,7 +17,6 @@
  */
 package org.apache.drill.test;
 
-import static org.apache.drill.exec.util.StoragePluginTestUtils.DEFAULT_SCHEMA;
 import static org.apache.drill.exec.util.StoragePluginTestUtils.ROOT_SCHEMA;
 import static org.apache.drill.exec.util.StoragePluginTestUtils.TMP_SCHEMA;
 import static org.hamcrest.core.StringContains.containsString;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.test.DrillTestWrapper.TestServices;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.config.DrillProperties;
@@ -65,9 +65,9 @@ import org.apache.drill.exec.util.StoragePluginTestUtils;
 import org.apache.drill.exec.util.VectorUtil;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
-import com.google.common.io.Resources;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.io.Resources;
 
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
@@ -194,7 +194,7 @@ public class BaseTestQuery extends ExecTest {
       StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
         dirTestWatcher.getRootDir(), ROOT_SCHEMA);
       StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
-        dirTestWatcher.getRootDir(), DEFAULT_SCHEMA);
+        dirTestWatcher.getRootDir(), SchemaFactory.DEFAULT_WS_NAME);
     }
 
     if (!properties.containsKey(DrillProperties.DRILLBIT_CONNECTION)) {
@@ -480,6 +480,7 @@ public class BaseTestQuery extends ExecTest {
 
   public static class SilentListener implements UserResultsListener {
     private final AtomicInteger count = new AtomicInteger();
+    private QueryId queryId;
 
     @Override
     public void submissionFailed(UserException ex) {
@@ -501,8 +502,17 @@ public class BaseTestQuery extends ExecTest {
     }
 
     @Override
-    public void queryIdArrived(QueryId queryId) {}
+    public void queryIdArrived(QueryId queryId) {
+      this.queryId = queryId;
+    }
 
+    public QueryId getQueryId() {
+      return queryId;
+    }
+
+    public int getRowCount() {
+      return count.get();
+    }
   }
 
   protected void setColumnWidth(int columnWidth) {
