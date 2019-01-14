@@ -478,7 +478,6 @@
                <exclude>org/apache/hadoop/tracing/**</exclude>
                <exclude>org/apache/hadoop/tools/**</exclude>
                <exclude>org/apache/hadoop/yarn/**</exclude>
-               <exclude>org/apache/commons/pool2/**</exclude>
                <exclude>org/apache/http/**</exclude>
                <exclude>org/apache/directory/**</exclude>
                <exclude>com/jcraft/**</exclude>
