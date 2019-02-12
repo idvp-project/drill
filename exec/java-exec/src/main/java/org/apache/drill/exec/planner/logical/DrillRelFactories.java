@@ -42,6 +42,7 @@ import static org.apache.calcite.rel.core.RelFactories.DEFAULT_SET_OP_FACTORY;
 import static org.apache.calcite.rel.core.RelFactories.DEFAULT_SORT_FACTORY;
 import static org.apache.calcite.rel.core.RelFactories.DEFAULT_TABLE_SCAN_FACTORY;
 import static org.apache.calcite.rel.core.RelFactories.DEFAULT_VALUES_FACTORY;
+import static org.apache.drill.exec.planner.logical.DrillRel.DRILL_LOGICAL;
 
 /**
  * Contains factory implementation for creating various Drill Logical Rel nodes.
@@ -86,7 +87,7 @@ public class DrillRelFactories {
       final RelDataType rowType =
           RexUtil.createStructType(cluster.getTypeFactory(), childExprs, fieldNames, null);
 
-      return DrillProjectRel.create(cluster, child.getTraitSet(), child, childExprs, rowType);
+      return DrillProjectRel.create(cluster, child.getTraitSet().plus(DRILL_LOGICAL), child, childExprs, rowType);
     }
   }
 
@@ -111,14 +112,14 @@ public class DrillRelFactories {
     public RelNode createJoin(RelNode left, RelNode right,
                               RexNode condition, Set<CorrelationId> variablesSet,
                               JoinRelType joinType, boolean semiJoinDone) {
-      return new DrillJoinRel(left.getCluster(), left.getTraitSet(), left, right, condition, joinType);
+      return new DrillJoinRel(left.getCluster(), left.getTraitSet().plus(DRILL_LOGICAL), left, right, condition, joinType);
     }
 
     @Override
     public RelNode createJoin(RelNode left, RelNode right,
                               RexNode condition, JoinRelType joinType,
                               Set<String> variablesStopped, boolean semiJoinDone) {
-      return new DrillJoinRel(left.getCluster(), left.getTraitSet(), left, right, condition, joinType);
+      return new DrillJoinRel(left.getCluster(), left.getTraitSet().plus(DRILL_LOGICAL), left, right, condition, joinType);
     }
   }
 
