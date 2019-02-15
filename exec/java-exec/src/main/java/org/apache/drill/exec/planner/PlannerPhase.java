@@ -189,7 +189,7 @@ public enum PlannerPhase {
   static final RelOptRule DRILL_JOIN_TO_MULTIJOIN_RULE =
       new DrillJoinToMultiJoinRule(DrillJoinRel.class, DrillRelFactories.LOGICAL_BUILDER);
   static final RelOptRule DRILL_LOPT_OPTIMIZE_JOIN_RULE =
-      new LoptOptimizeJoinRule(DrillRelBuilder.proto(
+      new DrillLoptOptimizeJoinRule(DrillRelBuilder.proto(
           DrillRelFactories.DRILL_LOGICAL_JOIN_FACTORY,
           DrillRelFactories.DRILL_LOGICAL_PROJECT_FACTORY,
           DrillRelFactories.DRILL_LOGICAL_FILTER_FACTORY));
