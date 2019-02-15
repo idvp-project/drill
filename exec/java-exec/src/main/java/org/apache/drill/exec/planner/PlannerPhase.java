@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.planner;
 
+import org.apache.drill.exec.planner.logical.*;
+import org.apache.drill.exec.planner.physical.*;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet.Builder;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -36,68 +38,13 @@ import org.apache.calcite.tools.RuleSets;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.planner.index.rules.DbScanSortRemovalRule;
 import org.apache.drill.exec.planner.index.rules.DbScanToIndexScanPrule;
-import org.apache.drill.exec.planner.logical.DrillAggregateRule;
-import org.apache.drill.exec.planner.logical.DrillCorrelateRule;
-import org.apache.drill.exec.planner.logical.DrillFilterAggregateTransposeRule;
-import org.apache.drill.exec.planner.logical.DrillFilterItemStarReWriterRule;
-import org.apache.drill.exec.planner.logical.DrillFilterJoinRules;
-import org.apache.drill.exec.planner.logical.DrillFilterRule;
-import org.apache.drill.exec.planner.logical.DrillJoinRel;
-import org.apache.drill.exec.planner.logical.DrillJoinRule;
-import org.apache.drill.exec.planner.logical.DrillLimitRule;
-import org.apache.drill.exec.planner.logical.DrillMergeProjectRule;
-import org.apache.drill.exec.planner.logical.DrillProjectLateralJoinTransposeRule;
-import org.apache.drill.exec.planner.logical.DrillProjectPushIntoLateralJoinRule;
-import org.apache.drill.exec.planner.logical.DrillProjectRule;
-import org.apache.drill.exec.planner.logical.DrillPushFilterPastProjectRule;
-import org.apache.drill.exec.planner.logical.DrillPushLimitToScanRule;
-import org.apache.drill.exec.planner.logical.DrillPushProjectIntoScanRule;
-import org.apache.drill.exec.planner.logical.DrillPushProjectPastFilterRule;
-import org.apache.drill.exec.planner.logical.DrillPushProjectPastJoinRule;
-import org.apache.drill.exec.planner.logical.DrillPushRowKeyJoinToScanRule;
-import org.apache.drill.exec.planner.logical.DrillReduceAggregatesRule;
-import org.apache.drill.exec.planner.logical.DrillReduceExpressionsRule;
-import org.apache.drill.exec.planner.logical.DrillRelFactories;
-import org.apache.drill.exec.planner.logical.DrillScanRule;
-import org.apache.drill.exec.planner.logical.DrillSortRule;
-import org.apache.drill.exec.planner.logical.DrillUnionAllRule;
-import org.apache.drill.exec.planner.logical.DrillUnnestRule;
-import org.apache.drill.exec.planner.logical.DrillValuesRule;
-import org.apache.drill.exec.planner.logical.DrillWindowRule;
 import org.apache.drill.exec.planner.logical.partition.ParquetPruneScanRule;
 import org.apache.drill.exec.planner.logical.partition.PruneScanRule;
-import org.apache.drill.exec.planner.physical.ConvertCountToDirectScan;
-import org.apache.drill.exec.planner.physical.LateralJoinPrule;
-import org.apache.drill.exec.planner.physical.DirectScanPrule;
-import org.apache.drill.exec.planner.physical.FilterPrule;
-import org.apache.drill.exec.planner.physical.HashAggPrule;
-import org.apache.drill.exec.planner.physical.HashJoinPrule;
-import org.apache.drill.exec.planner.physical.LimitPrule;
-import org.apache.drill.exec.planner.physical.LimitExchangeTransposeRule;
-import org.apache.drill.exec.planner.physical.MergeJoinPrule;
-import org.apache.drill.exec.planner.physical.NestedLoopJoinPrule;
-import org.apache.drill.exec.planner.physical.PlannerSettings;
-import org.apache.drill.exec.planner.physical.ProjectPrule;
-import org.apache.drill.exec.planner.physical.PushLimitToTopN;
-import org.apache.drill.exec.planner.physical.RowKeyJoinPrule;
-import org.apache.drill.exec.planner.physical.ScanPrule;
-import org.apache.drill.exec.planner.physical.ScreenPrule;
-import org.apache.drill.exec.planner.physical.SortConvertPrule;
-import org.apache.drill.exec.planner.physical.SortPrule;
-import org.apache.drill.exec.planner.physical.StreamAggPrule;
-import org.apache.drill.exec.planner.physical.UnionAllPrule;
-import org.apache.drill.exec.planner.physical.UnnestPrule;
-import org.apache.drill.exec.planner.physical.ValuesPrule;
-import org.apache.drill.exec.planner.physical.WindowPrule;
-import org.apache.drill.exec.planner.physical.WriterPrule;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.store.parquet.ParquetPushDownFilter;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Returns RuleSet for concrete planner phase.
@@ -258,7 +205,7 @@ public enum PlannerPhase {
   static final RelOptRule DRILL_JOIN_TO_MULTIJOIN_RULE =
       new DrillJoinToMultiJoinRule(DrillJoinRel.class, DrillRelFactories.LOGICAL_BUILDER);
   static final RelOptRule DRILL_LOPT_OPTIMIZE_JOIN_RULE =
-      new LoptOptimizeJoinRule(DrillRelBuilder.proto(
+      new DrillLoptOptimizeJoinRule(DrillRelBuilder.proto(
           DrillRelFactories.DRILL_LOGICAL_JOIN_FACTORY,
           DrillRelFactories.DRILL_LOGICAL_PROJECT_FACTORY,
           DrillRelFactories.DRILL_LOGICAL_FILTER_FACTORY));
