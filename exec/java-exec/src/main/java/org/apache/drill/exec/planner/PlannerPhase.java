@@ -20,74 +20,29 @@ package org.apache.drill.exec.planner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
 import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
+import org.apache.calcite.rel.rules.MultiJoin;
+import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
-import org.apache.drill.exec.planner.logical.DrillAggregateRule;
-import org.apache.drill.exec.planner.logical.DrillCorrelateRule;
-import org.apache.drill.exec.planner.logical.DrillFilterAggregateTransposeRule;
-import org.apache.drill.exec.planner.logical.DrillFilterItemStarReWriterRule;
-import org.apache.drill.exec.planner.logical.DrillFilterJoinRules;
-import org.apache.drill.exec.planner.logical.DrillFilterRule;
-import org.apache.drill.exec.planner.logical.DrillJoinRel;
-import org.apache.drill.exec.planner.logical.DrillJoinRule;
-import org.apache.drill.exec.planner.logical.DrillLimitRule;
-import org.apache.drill.exec.planner.logical.DrillMergeProjectRule;
-import org.apache.drill.exec.planner.logical.ProjectComplexRexNodeCorrelateTransposeRule;
-import org.apache.drill.exec.planner.logical.DrillProjectLateralJoinTransposeRule;
-import org.apache.drill.exec.planner.logical.DrillProjectPushIntoLateralJoinRule;
-import org.apache.drill.exec.planner.logical.DrillProjectRule;
-import org.apache.drill.exec.planner.logical.DrillPushFilterPastProjectRule;
-import org.apache.drill.exec.planner.logical.DrillPushLimitToScanRule;
-import org.apache.drill.exec.planner.logical.DrillPushProjectIntoScanRule;
-import org.apache.drill.exec.planner.logical.DrillPushProjectPastFilterRule;
-import org.apache.drill.exec.planner.logical.DrillPushProjectPastJoinRule;
-import org.apache.drill.exec.planner.logical.DrillReduceAggregatesRule;
-import org.apache.drill.exec.planner.logical.DrillReduceExpressionsRule;
-import org.apache.drill.exec.planner.logical.DrillRelFactories;
-import org.apache.drill.exec.planner.logical.DrillScanRule;
-import org.apache.drill.exec.planner.logical.DrillSortRule;
-import org.apache.drill.exec.planner.logical.DrillUnionAllRule;
-import org.apache.drill.exec.planner.logical.DrillUnnestRule;
-import org.apache.drill.exec.planner.logical.DrillValuesRule;
-import org.apache.drill.exec.planner.logical.DrillWindowRule;
+import org.apache.drill.exec.planner.logical.*;
 import org.apache.drill.exec.planner.logical.partition.ParquetPruneScanRule;
 import org.apache.drill.exec.planner.logical.partition.PruneScanRule;
-import org.apache.drill.exec.planner.physical.ConvertCountToDirectScan;
-import org.apache.drill.exec.planner.physical.LateralJoinPrule;
-import org.apache.drill.exec.planner.physical.DirectScanPrule;
-import org.apache.drill.exec.planner.physical.FilterPrule;
-import org.apache.drill.exec.planner.physical.HashAggPrule;
-import org.apache.drill.exec.planner.physical.HashJoinPrule;
-import org.apache.drill.exec.planner.physical.LimitPrule;
-import org.apache.drill.exec.planner.physical.LimitUnionExchangeTransposeRule;
-import org.apache.drill.exec.planner.physical.MergeJoinPrule;
-import org.apache.drill.exec.planner.physical.NestedLoopJoinPrule;
-import org.apache.drill.exec.planner.physical.PlannerSettings;
-import org.apache.drill.exec.planner.physical.ProjectPrule;
-import org.apache.drill.exec.planner.physical.PushLimitToTopN;
-import org.apache.drill.exec.planner.physical.ScanPrule;
-import org.apache.drill.exec.planner.physical.ScreenPrule;
-import org.apache.drill.exec.planner.physical.SortConvertPrule;
-import org.apache.drill.exec.planner.physical.SortPrule;
-import org.apache.drill.exec.planner.physical.StreamAggPrule;
-import org.apache.drill.exec.planner.physical.UnionAllPrule;
-import org.apache.drill.exec.planner.physical.UnnestPrule;
-import org.apache.drill.exec.planner.physical.ValuesPrule;
-import org.apache.drill.exec.planner.physical.WindowPrule;
-import org.apache.drill.exec.planner.physical.WriterPrule;
+import org.apache.drill.exec.planner.physical.*;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.store.parquet.ParquetPushDownFilter;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Returns RuleSet for concrete planner phase.
@@ -232,7 +187,7 @@ public enum PlannerPhase {
 
 
   static final RelOptRule DRILL_JOIN_TO_MULTIJOIN_RULE =
-      new JoinToMultiJoinRule(DrillJoinRel.class, DrillRelFactories.LOGICAL_BUILDER);
+      new DrillJoinToMultiJoinRule(DrillJoinRel.class, DrillRelFactories.LOGICAL_BUILDER);
   static final RelOptRule DRILL_LOPT_OPTIMIZE_JOIN_RULE =
       new LoptOptimizeJoinRule(DrillRelBuilder.proto(
           DrillRelFactories.DRILL_LOGICAL_JOIN_FACTORY,
@@ -561,5 +516,50 @@ public enum PlannerPhase {
             RuleInstance.REMOVE_IS_NOT_DISTINCT_FROM_RULE,
             RuleInstance.DRILL_FILTER_MERGE_RULE
         ).build());
+  }
+
+  public static class DrillJoinToMultiJoinRule extends JoinToMultiJoinRule {
+
+    DrillJoinToMultiJoinRule(Class<? extends Join> clazz, RelBuilderFactory relBuilderFactory) {
+      super(clazz, relBuilderFactory);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      final Join origJoin = call.rel(0);
+      final RelNode left = call.rel(1);
+      final RelNode right = call.rel(2);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(origJoin.getTraitSet().getTrait(ConventionTraitDef.INSTANCE))
+        && conventions.contains(left.getTraitSet().getTrait(ConventionTraitDef.INSTANCE))
+        && conventions.contains(right.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+  }
+
+  public static class DrillLoptOptimizeJoinRule extends LoptOptimizeJoinRule {
+
+    DrillLoptOptimizeJoinRule(RelBuilderFactory relBuilderFactory) {
+      super(relBuilderFactory);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      final MultiJoin multiJoinRel = call.rel(0);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(multiJoinRel.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+
   }
 }

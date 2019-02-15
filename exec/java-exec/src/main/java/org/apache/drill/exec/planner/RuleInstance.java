@@ -17,8 +17,12 @@
  */
 package org.apache.drill.exec.planner;
 
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.volcano.AbstractConverter;
+import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalCalc;
@@ -42,8 +46,14 @@ import org.apache.calcite.rel.rules.ReduceExpressionsRule;
 import org.apache.calcite.rel.rules.SortRemoveRule;
 import org.apache.calcite.rel.rules.SubQueryRemoveRule;
 import org.apache.calcite.rel.rules.UnionToDistinctRule;
+import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.drill.exec.planner.logical.DrillConditions;
+import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.DrillRelFactories;
+import org.apache.drill.exec.planner.physical.Prel;
+
+import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * Contains rule instances which use custom RelBuilder.
@@ -63,10 +73,10 @@ public interface RuleInstance {
           DrillRelFactories.LOGICAL_BUILDER);
 
   FilterMergeRule FILTER_MERGE_RULE =
-      new FilterMergeRule(DrillRelFactories.LOGICAL_BUILDER);
+      new DrillFilterMergeRule(DrillRelFactories.LOGICAL_BUILDER);
 
   FilterMergeRule DRILL_FILTER_MERGE_RULE =
-      new FilterMergeRule(DrillRelBuilder.proto(DrillRelFactories.DRILL_LOGICAL_FILTER_FACTORY));
+      new DrillFilterMergeRule(DrillRelBuilder.proto(DrillRelFactories.DRILL_LOGICAL_FILTER_FACTORY));
 
   FilterCorrelateRule FILTER_CORRELATE_RULE =
       new FilterCorrelateRule(DrillRelFactories.LOGICAL_BUILDER);
@@ -126,7 +136,7 @@ public interface RuleInstance {
    * to its inputs.
    */
   JoinPushTransitivePredicatesRule DRILL_JOIN_PUSH_TRANSITIVE_PREDICATES_RULE =
-      new JoinPushTransitivePredicatesRule(Join.class, DrillRelBuilder.proto(
+      new DrillJoinPushTransitivePredicatesRule(Join.class, DrillRelBuilder.proto(
           DrillRelFactories.DRILL_LOGICAL_JOIN_FACTORY, DrillRelFactories.DRILL_LOGICAL_FILTER_FACTORY));
 
   FilterRemoveIsNotDistinctFromRule REMOVE_IS_NOT_DISTINCT_FROM_RULE =
@@ -140,4 +150,46 @@ public interface RuleInstance {
 
   SubQueryRemoveRule SUB_QUERY_JOIN_REMOVE_RULE =
       new SubQueryRemoveRule.SubQueryJoinRemoveRule(DrillRelFactories.LOGICAL_BUILDER);
+
+  class DrillJoinPushTransitivePredicatesRule extends JoinPushTransitivePredicatesRule {
+
+    DrillJoinPushTransitivePredicatesRule(Class<? extends Join> clazz, RelBuilderFactory relBuilderFactory) {
+      super(clazz, relBuilderFactory);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      Join join = call.rel(0);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(join.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+  }
+
+  class DrillFilterMergeRule extends FilterMergeRule {
+
+    DrillFilterMergeRule(RelBuilderFactory relBuilderFactory) {
+      super(relBuilderFactory);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      Filter topFilter = call.rel(0);
+      Filter bottomFilter = call.rel(1);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(topFilter.getTraitSet().getTrait(ConventionTraitDef.INSTANCE))
+        && conventions.contains(bottomFilter.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+  }
 }
