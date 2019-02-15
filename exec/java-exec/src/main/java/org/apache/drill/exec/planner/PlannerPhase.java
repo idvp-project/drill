@@ -20,10 +20,17 @@ package org.apache.drill.exec.planner;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet.Builder;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
 import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
+import org.apache.calcite.rel.rules.MultiJoin;
+import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
@@ -249,7 +256,7 @@ public enum PlannerPhase {
 
 
   static final RelOptRule DRILL_JOIN_TO_MULTIJOIN_RULE =
-      new JoinToMultiJoinRule(DrillJoinRel.class, DrillRelFactories.LOGICAL_BUILDER);
+      new DrillJoinToMultiJoinRule(DrillJoinRel.class, DrillRelFactories.LOGICAL_BUILDER);
   static final RelOptRule DRILL_LOPT_OPTIMIZE_JOIN_RULE =
       new LoptOptimizeJoinRule(DrillRelBuilder.proto(
           DrillRelFactories.DRILL_LOGICAL_JOIN_FACTORY,
@@ -611,5 +618,50 @@ public enum PlannerPhase {
             DrillFilterAggregateTransposeRule.DRILL_LOGICAL_INSTANCE,
             RuleInstance.DRILL_FILTER_MERGE_RULE
         ).build());
+  }
+
+  public static class DrillJoinToMultiJoinRule extends JoinToMultiJoinRule {
+
+    DrillJoinToMultiJoinRule(Class<? extends Join> clazz, RelBuilderFactory relBuilderFactory) {
+      super(clazz, relBuilderFactory);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      final Join origJoin = call.rel(0);
+      final RelNode left = call.rel(1);
+      final RelNode right = call.rel(2);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(origJoin.getTraitSet().getTrait(ConventionTraitDef.INSTANCE))
+        && conventions.contains(left.getTraitSet().getTrait(ConventionTraitDef.INSTANCE))
+        && conventions.contains(right.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+  }
+
+  public static class DrillLoptOptimizeJoinRule extends LoptOptimizeJoinRule {
+
+    DrillLoptOptimizeJoinRule(RelBuilderFactory relBuilderFactory) {
+      super(relBuilderFactory);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      final MultiJoin multiJoinRel = call.rel(0);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(multiJoinRel.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+
   }
 }
