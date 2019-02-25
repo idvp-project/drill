@@ -181,7 +181,7 @@ class ValueHolderIden {
   }
 
   public class ValueHolderSub {
-    private int first;
+    private final int first;
 
     @Override
     public String toString() {
