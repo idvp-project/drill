@@ -10,26 +10,97 @@
  *  OF ANY KIND, either express or implied. See the License for the specific
  *  language governing permissions and limitations under the License.
  */
+var userName = null;
+//Elements for Timer in LoadingModal
+var elapsedTime = 0;
+var delay = 1000; //msec
+var timeTracker = null; //Handle for stopping watch
+var userName = null;
 
+//Show cancellation status
+function popupAndWait() {
+  elapsedTime=0; //Init
+  $("#queryLoadingModal").modal("show");
+  var stopWatchElem = $('#stopWatch'); //Get handle on time progress elem within Modal
+  //Timer updating
+  timeTracker = setInterval(function() {
+    elapsedTime = elapsedTime + delay/1000;
+    let time = elapsedTime;
+    let minutes = Math.floor(time / 60);
+    let seconds = time - minutes * 60;
+    let prettyTime = ("0" + minutes).slice(-2)+':'+ ("0" + seconds).slice(-2);
+    stopWatchElem.text('Elapsed Time : ' + prettyTime);
+  }, delay);
+}
+
+//Close the cancellation status popup
+function closePopup() {
+  clearInterval(timeTracker);
+  $("#queryLoadingModal").modal("hide");
+}
+
+// Wrap & Submit Query (invoked if impersonation is enabled to check for username)
 function doSubmitQueryWithUserName() {
-    var userName = document.getElementById("userName").value;
+    userName = document.getElementById("userName").value;
     if (!userName.trim()) {
-        alert("Please fill in User Name field");
+        populateAndShowAlert('userNameMissing', null);
+        $("#userName").focus();
         return;
     }
+    //Wrap and Submit query
+    doSubmitQueryWithAutoLimit();
+}
+
+//Perform autoLimit check before submitting (invoked directly if impersonation is not enabled)
+function doSubmitQueryWithAutoLimit() {
+    let origQueryText = $('#query').attr('value');
+    if (origQueryText == null || origQueryText.trim().length == 0) {
+        populateAndShowAlert("queryMissing", null);
+        $("#query").focus();
+        return;
+    }
+    //Wrap if required
+    let mustWrapWithLimit = $('input[name="forceLimit"]:checked').length > 0;
+    //Clear field when submitting if not mustWrapWithLimit
+    if (!mustWrapWithLimit) {
+      //Wipe out any numeric entry in the field before
+      $('#queryLimit').attr('value', '');
+    } else {
+      let autoLimitValue=document.getElementById('queryLimit').value;
+      let positiveIntRegex = new RegExp("^[1-9]\\d*$");
+      let isValidRowCount = positiveIntRegex.test(autoLimitValue);
+      if (!isValidRowCount) {
+        let alertValues = {'_autoLimitValue_': autoLimitValue };
+        populateAndShowAlert("invalidRowCount", alertValues);
+        $('#queryLimit').focus();
+        return;
+      }
+    }
+    //Submit query
+    submitQuery();
+}
+
+//Submit Query
+function submitQuery() {
+    popupAndWait();
+    //Submit query
     $.ajax({
         type: "POST",
         beforeSend: function (request) {
-            request.setRequestHeader("User-Name", userName);
+            if (typeof userName !== 'undefined' && userName !== null && userName.length > 0) {
+              request.setRequestHeader("User-Name", userName);
+            }
         },
         url: "/query",
         data: $("#queryForm").serializeArray(),
         success: function (response) {
+            closePopup();
             var newDoc = document.open("text/html", "replace");
             newDoc.write(response);
             newDoc.close();
         },
         error: function (request, textStatus, errorThrown) {
+            closePopup();
             alert(errorThrown);
         }
     });

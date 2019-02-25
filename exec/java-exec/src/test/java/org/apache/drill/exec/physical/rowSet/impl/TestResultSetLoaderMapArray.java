@@ -28,11 +28,13 @@ import static org.junit.Assert.assertTrue;
 import java.util.Arrays;
 import java.util.Iterator;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
@@ -45,10 +47,10 @@ import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
-import org.apache.drill.test.rowSet.schema.SchemaBuilder;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * Test map array support in the result set loader.
@@ -59,6 +61,7 @@ import org.junit.Test;
  * constructs not to be tackled lightly.
  */
 
+@Category(RowSetTests.class)
 public class TestResultSetLoaderMapArray extends SubOperatorTest {
 
   @Test
@@ -123,7 +126,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             mapValue(320, "d3.2"),
             mapValue(330, "d3.3")))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
 
     // In the second, create a row, then add a map member.
     // Should be back-filled to empty for the first row.
@@ -172,7 +175,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             mapValue(620, "d6.2", null),
             mapValue(630, "d6.3", "e6.3")))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
 
     rsLoader.close();
   }
@@ -220,13 +223,13 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             mapValue(320, strArray()),
             mapValue(330, strArray("d3.3.1", "d1.2.2"))))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
 
     rsLoader.close();
   }
 
   /**
-   * Test a doubly-nested arrays of maps.
+   * Test a doubly-nested array of maps.
    */
 
   @Test

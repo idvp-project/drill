@@ -18,7 +18,6 @@
 package org.apache.drill.exec.planner.sql.handlers;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -106,7 +105,6 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
-import org.apache.drill.exec.work.foreman.UnsupportedRelOperatorException;
 import org.slf4j.Logger;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -240,13 +238,14 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       final RelNode pruned = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.DIRECTORY_PRUNING, setOpTransposeNode);
       final RelTraitSet logicalTraits = pruned.getTraitSet().plus(DrillRel.DRILL_LOGICAL);
 
-      final RelNode convertedRelNode;
+      RelNode convertedRelNode;
       if (!context.getPlannerSettings().isHepOptEnabled()) {
         // hep is disabled, use volcano
         convertedRelNode = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL_PRUNE_AND_JOIN, pruned, logicalTraits);
 
       } else {
         final RelNode intermediateNode2;
+        final RelNode intermediateNode3;
         if (context.getPlannerSettings().isHepPartitionPruningEnabled()) {
 
           final RelNode intermediateNode = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL, pruned, logicalTraits);
@@ -268,9 +267,24 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
         }
 
         // Do Join Planning.
-        convertedRelNode = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.JOIN_PLANNING, intermediateNode2);
+        intermediateNode3 = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.JOIN_PLANNING, intermediateNode2);
+
+        if (context.getPlannerSettings().isRowKeyJoinConversionEnabled()) {
+          // Covert Join to RowKeyJoin, where applicable.
+          convertedRelNode = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.ROWKEYJOIN_CONVERSION, intermediateNode3);
+        } else {
+          convertedRelNode = intermediateNode3;
+        }
       }
 
+      /* Ideally this conversion can be handled during logical planning phase itself
+         but currently the join ordering algorithm in calcite is not considering the
+         semi-joins. This can lead to sub optimal plans. Hence converting the joins
+         to semi-joins post join planning (refer CALCITE-2813). */
+      if (context.getPlannerSettings().isSemiJoinEnabled() &&
+          context.getPlannerSettings().isHashJoinEnabled()) {
+        convertedRelNode = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.SEMIJOIN_CONVERSION, convertedRelNode);
+      }
       // Convert SUM to $SUM0
       final RelNode convertedRelNodeWithSum0 = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.SUM_CONVERSION, convertedRelNode);
 
@@ -294,8 +308,8 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     } catch (RelOptPlanner.CannotPlanException ex) {
       logger.error(ex.getMessage());
 
-      if (JoinUtils.checkCartesianJoin(relNode, new ArrayList<>(), new ArrayList<>(), new ArrayList<>())) {
-        throw new UnsupportedRelOperatorException("This query cannot be planned possibly due to either a cartesian join or an inequality join");
+      if (JoinUtils.checkCartesianJoin(relNode)) {
+        throw JoinUtils.cartesianJoinPlanningException();
       } else {
         throw ex;
       }
@@ -459,8 +473,8 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     } catch (RelOptPlanner.CannotPlanException ex) {
       logger.error(ex.getMessage());
 
-      if (JoinUtils.checkCartesianJoin(drel, new ArrayList<>(), new ArrayList<>(), new ArrayList<>())) {
-        throw new UnsupportedRelOperatorException("This query cannot be planned possibly due to either a cartesian join or an inequality join");
+      if (JoinUtils.checkCartesianJoin(drel)) {
+        throw JoinUtils.cartesianJoinPlanningException();
       } else {
         throw ex;
       }
@@ -482,8 +496,8 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       } catch (RelOptPlanner.CannotPlanException ex) {
         logger.error(ex.getMessage());
 
-        if (JoinUtils.checkCartesianJoin(drel, new ArrayList<>(), new ArrayList<>(), new ArrayList<>())) {
-          throw new UnsupportedRelOperatorException("This query cannot be planned possibly due to either a cartesian join or an inequality join");
+        if (JoinUtils.checkCartesianJoin(drel)) {
+          throw JoinUtils.cartesianJoinPlanningException();
         } else {
           throw ex;
         }

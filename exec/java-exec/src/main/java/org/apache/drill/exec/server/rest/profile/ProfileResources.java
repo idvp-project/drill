@@ -57,7 +57,7 @@ import org.apache.drill.exec.store.sys.PersistentStoreProvider;
 import org.apache.drill.exec.work.WorkManager;
 import org.apache.drill.exec.work.foreman.Foreman;
 import org.glassfish.jersey.server.mvc.Viewable;
-
+import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 @Path("/")
@@ -201,10 +201,10 @@ public class ProfileResources {
     private List<ProfileInfo> finishedQueries;
     private List<String> errors;
 
-    public QProfiles(List<ProfileInfo> runningQueries, List<ProfileInfo> finishedQueries, List<String> erorrs) {
+    public QProfiles(List<ProfileInfo> runningQueries, List<ProfileInfo> finishedQueries, List<String> errors) {
       this.runningQueries = runningQueries;
       this.finishedQueries = finishedQueries;
-      this.errors = erorrs;
+      this.errors = errors;
     }
 
     public List<ProfileInfo> getRunningQueries() {
@@ -217,6 +217,12 @@ public class ProfileResources {
 
     public int getMaxFetchedQueries() {
       return work.getContext().getConfig().getInt(ExecConstants.HTTP_MAX_PROFILES);
+    }
+
+    public String getQueriesPerPage() {
+      List<Integer> queriesPerPageOptions = work.getContext().getConfig().getIntList(ExecConstants.HTTP_PROFILES_PER_PAGE);
+      Collections.sort(queriesPerPageOptions);
+      return Joiner.on(",").join(queriesPerPageOptions);
     }
 
     public List<String> getErrors() { return errors; }
@@ -370,8 +376,13 @@ public class ProfileResources {
   @Path("/profiles/{queryid}")
   @Produces(MediaType.TEXT_HTML)
   public Viewable getProfile(@PathParam("queryid") String queryId){
-    ProfileWrapper wrapper = new ProfileWrapper(getQueryProfile(queryId), work.getContext().getConfig());
-    return ViewableWithPermissions.create(authEnabled.get(), "/rest/profile/profile.ftl", sc, wrapper);
+    try {
+      ProfileWrapper wrapper = new ProfileWrapper(getQueryProfile(queryId), work.getContext().getConfig());
+      return ViewableWithPermissions.create(authEnabled.get(), "/rest/profile/profile.ftl", sc, wrapper);
+    } catch (Exception | Error e) {
+      logger.error("Exception was thrown when fetching profile {} :\n{}", queryId, e);
+      return ViewableWithPermissions.create(authEnabled.get(), "/rest/errorMessage.ftl", sc, e);
+    }
   }
 
   @SuppressWarnings("resource")
