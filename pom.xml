@@ -773,6 +773,8 @@
               -XX:+CMSClassUnloadingEnabled -ea
               -Djdk.attach.allowAttachSelf=true
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
+              -Duser.language=en
+              -Duser.country=US
             </argLine>
             <forkCount>${forkCount}</forkCount>
             <reuseForks>true</reuseForks>

@@ -18,10 +18,15 @@
 package org.apache.drill.exec.compile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.util.DrillFileUtils;
@@ -224,6 +229,9 @@ public class ClassTransformer {
         cg.getGeneratedCode(), cg.getMaterializedClassName());
   }
 
+  private final AtomicInteger genNumber = new AtomicInteger(0);
+  private final AtomicInteger classNumber = new AtomicInteger(0);
+
   public Class<?> getImplementationClass(
       final QueryClassLoader classLoader,
       final TemplateClassDefinition<?> templateDefinition,
@@ -235,11 +243,20 @@ public class ClassTransformer {
     try {
       final long t1 = System.nanoTime();
       final ClassSet set = new ClassSet(null, templateDefinition.getTemplateClassName(), materializedClassName);
+
+      Path p = Paths.get("/home/ozinoviev/cg/", Integer.toString(genNumber.getAndIncrement()));
+      Files.createDirectories(p);
+
+      FileUtils.writeStringToFile(p.resolve("code.java").toFile(), entireClass);
+
       final byte[][] implementationClasses = classLoader.getClassByteCode(set.generated, entireClass);
 
       long totalBytecodeSize = 0;
       Map<String, Pair<byte[], ClassNode>> classesToMerge = Maps.newHashMap();
       for (byte[] clazz : implementationClasses) {
+
+        FileUtils.writeByteArrayToFile(p.resolve("class_" + classNumber.getAndIncrement() + ".class").toFile(), clazz);
+
         totalBytecodeSize += clazz.length;
         final ClassNode node = AsmUtil.classFromBytes(clazz, ClassReader.EXPAND_FRAMES);
         if (!AsmUtil.isClassOk(logger, "implementationClasses", node)) {

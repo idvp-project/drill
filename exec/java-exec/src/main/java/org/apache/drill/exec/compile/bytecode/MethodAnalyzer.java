@@ -17,10 +17,18 @@
  */
 package org.apache.drill.exec.compile.bytecode;
 
-import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.Frame;
-import org.objectweb.asm.tree.analysis.Interpreter;
-import org.objectweb.asm.tree.analysis.Value;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.*;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Analyzer that allows us to inject additional functionality into ASMs basic analysis.
@@ -44,14 +52,22 @@ public class MethodAnalyzer<V extends Value> extends Analyzer <V> {
    * those from Frame<>.
    */
   private static class AssignmentTrackingFrame<V extends Value> extends Frame<V> {
+
+    private final LocalVariablesView view;
+
+    private AbstractInsnNode currentInsn;
+
     /**
      * Constructor.
      *
      * @param nLocals the number of locals the frame should have
      * @param nStack the maximum size of the stack the frame should have
      */
-    public AssignmentTrackingFrame(final int nLocals, final int nStack) {
+    public AssignmentTrackingFrame(final int nLocals,
+                                   final int nStack,
+                                   final LocalVariablesView view) {
       super(nLocals, nStack);
+      this.view = view;
     }
 
     /**
@@ -59,8 +75,17 @@ public class MethodAnalyzer<V extends Value> extends Analyzer <V> {
      *
      * @param src the frame being copied
      */
-    public AssignmentTrackingFrame(final Frame<? extends V> src) {
+    public AssignmentTrackingFrame(final Frame<? extends V> src,
+                                   final LocalVariablesView view) {
       super(src);
+      this.view = view;
+    }
+
+    @Override
+    public void execute(final AbstractInsnNode insn,
+                        final Interpreter<V> interpreter) throws AnalyzerException {
+      currentInsn = insn;
+      super.execute(insn, interpreter);
     }
 
     @Override
@@ -72,34 +97,142 @@ public class MethodAnalyzer<V extends Value> extends Analyzer <V> {
        */
       if (value instanceof ReplacingBasicValue) {
         final ReplacingBasicValue replacingValue = (ReplacingBasicValue) value;
-        replacingValue.setFrameSlot(i);
+        final LocalVariablesView.Ref ref = view.findRef(currentInsn, i);
+        replacingValue.setFrameSlot(i, ref);
+
         final V localValue = getLocal(i);
         if ((localValue != null) && (localValue instanceof ReplacingBasicValue)) {
           final ReplacingBasicValue localReplacingValue = (ReplacingBasicValue) localValue;
-          localReplacingValue.associate(replacingValue);
+
+          if (localReplacingValue.containsLocalVariable(ref)) {
+            localReplacingValue.associate(replacingValue);
+
+            LoggerFactory.getLogger(MethodAnalyzer.class).error("Current insn: " + currentInsn);
+            LoggerFactory.getLogger(MethodAnalyzer.class).error("Variable: " + ref);
+            LoggerFactory.getLogger(MethodAnalyzer.class).error("Assigned variables: " + localReplacingValue.frameSlots);
+
+            if (!Objects.equals(((ReplacingBasicValue) value).getIden().type, ((ReplacingBasicValue) localValue).getIden().type)) {
+              LoggerFactory.getLogger(MethodAnalyzer.class).error("variables view: " + this.view);
+
+
+              LoggerFactory.getLogger(MethodAnalyzer.class).error("Type mismatch: " + i);
+              LoggerFactory.getLogger(MethodAnalyzer.class).error("new value: " + value);
+              LoggerFactory.getLogger(MethodAnalyzer.class).error("old value: " + localValue);
+            }
+
+            return;
+          }
         }
+
       }
 
       super.setLocal(i, value);
     }
   }
 
+  private final LocalVariablesView view;
+
   /**
    * Constructor.
    *
    * @param interpreter the interpreter to use
    */
-  public MethodAnalyzer(final Interpreter<V> interpreter) {
+  public MethodAnalyzer(final Interpreter<V> interpreter,
+                        final MethodNode method) {
     super(interpreter);
+    this.view = new LocalVariablesView(method);
   }
 
   @Override
   protected Frame<V> newFrame(final int maxLocals, final int maxStack) {
-    return new AssignmentTrackingFrame<V>(maxLocals, maxStack);
+    return new AssignmentTrackingFrame<V>(maxLocals, maxStack, view);
   }
 
   @Override
   protected Frame<V> newFrame(final Frame<? extends V> src) {
-    return new AssignmentTrackingFrame<V>(src);
+    return new AssignmentTrackingFrame<V>(src, view);
+  }
+
+  private static final class LocalVariablesView {
+    private final MethodNode method;
+    private final List<Ref> refs;
+
+    LocalVariablesView(final MethodNode method) {
+      this.method = method;
+      List<Ref> refs = new ArrayList<>(method.localVariables.size());
+
+      for (final LocalVariableNode lv : method.localVariables) {
+        int start = method.instructions.indexOf(lv.start);
+        int end = method.instructions.indexOf(lv.end);
+        refs.add(new Ref(lv.name, start, end, lv.index));
+      }
+
+      refs.sort(Comparator.comparing(r -> r.start));
+
+      this.refs = ImmutableList.copyOf(refs);
+    }
+
+    Ref findRef(final AbstractInsnNode insn,
+                final int index) {
+
+      if (insn == null) {
+        return null;
+      }
+
+      int insnIndex = method.instructions.indexOf(insn);
+
+      for (final Ref ref : refs) {
+        if (ref.start <= insnIndex && ref.end > insnIndex && ref.index == index) {
+          return ref;
+        }
+      }
+
+      for (final Ref ref : refs) {
+        if (ref.start > insnIndex && ref.index == index) {
+          // variable creates just after *STORE operation, so try to find next new variable
+          return ref;
+        }
+      }
+
+
+
+
+      LoggerFactory.getLogger(MethodAnalyzer.class).error("variables view: " + this);
+      LoggerFactory.getLogger(MethodAnalyzer.class).error("Insn: " + insn);
+      LoggerFactory.getLogger(MethodAnalyzer.class).error("Insn code: " + insn.getOpcode());
+      LoggerFactory.getLogger(MethodAnalyzer.class).error("Insn index: " + insnIndex);
+      LoggerFactory.getLogger(MethodAnalyzer.class).error("Var index: " + index);
+
+      return null;
+    }
+
+
+    @Override
+    public String toString() {
+      return refs.toString();
+    }
+
+    static final class Ref {
+      private final String name;
+      private final int start;
+      private final int end;
+      private final int index;
+
+      Ref(final String name,
+          final int start,
+          final int end,
+          final int index) {
+        this.name = name;
+        this.start = start;
+        this.end = end;
+        this.index = index;
+      }
+
+
+      @Override
+      public String toString() {
+        return "Ref{" + "name='" + name + '\'' + ", start=" + start + ", end=" + end + ", index=" + index + '}';
+      }
+    }
   }
 }

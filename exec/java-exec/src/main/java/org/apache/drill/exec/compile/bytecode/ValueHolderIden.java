@@ -36,7 +36,7 @@ class ValueHolderIden {
   private final Type[] types; // the type of each field in the holder, by index
   private final String[] names; // the name of each field in the holder, by index
   private final int[] offsets; // the offset of each field in the holder, by index
-  private final Type type; // type of the holder itself
+  final Type type; // type of the holder itself
 
   public ValueHolderIden(Class<?> c) {
     Field[] fields = c.getFields();
@@ -181,7 +181,7 @@ class ValueHolderIden {
   }
 
   public class ValueHolderSub {
-    private int first; // TODO: deal with transfer() so this can be made final
+    private final int first;
 
     @Override
     public String toString() {
@@ -209,8 +209,9 @@ class ValueHolderIden {
 
     private int getFieldIndex(final String name, final InstructionModifier mv) {
       if (!fieldMap.containsKey(name)) {
+
         throw new IllegalArgumentException(String.format(
-            "Unknown name '%s' on line %d.", name, mv.getLastLineNumber()));
+            "Unknown name '%s' on line %d. %s", name, mv.getLastLineNumber(), ValueHolderIden.this.type));
       }
       return fieldMap.get(name); // using lget() is not thread-safe
     }
@@ -238,8 +239,6 @@ class ValueHolderIden {
         mv.directVarInsn(types[i].getOpcode(Opcodes.ILOAD), first + offsets[i]);
         mv.directVarInsn(types[i].getOpcode(Opcodes.ISTORE), newStart + offsets[i]);
       }
-
-      this.first = newStart;
     }
 
     private void addKnownInsn(String name, InstructionModifier mv, int analogOpcode) {

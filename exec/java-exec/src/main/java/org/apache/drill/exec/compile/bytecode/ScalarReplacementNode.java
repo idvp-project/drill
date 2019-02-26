@@ -21,6 +21,7 @@ import java.util.LinkedList;
 
 import org.apache.drill.exec.compile.CheckMethodVisitorFsm;
 import org.apache.drill.exec.compile.CompilationConfig;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
@@ -56,7 +57,7 @@ public class ScalarReplacementNode extends MethodNode {
 
     final LinkedList<ReplacingBasicValue> valueList = new LinkedList<>();
     final MethodAnalyzer<BasicValue> analyzer =
-        new MethodAnalyzer<BasicValue>(new ReplacingInterpreter(className, valueList));
+        new MethodAnalyzer<BasicValue>(new ReplacingInterpreter(className, valueList), this);
     Frame<BasicValue>[] frames;
     try {
       frames = analyzer.analyze(className, this);

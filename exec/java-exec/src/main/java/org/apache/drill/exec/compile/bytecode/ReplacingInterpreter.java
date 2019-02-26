@@ -22,10 +22,7 @@ import java.util.List;
 import org.apache.drill.exec.compile.CompilationConfig;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicInterpreter;
 import org.objectweb.asm.tree.analysis.BasicValue;
@@ -37,10 +34,12 @@ public class ReplacingInterpreter extends BasicInterpreter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ReplacingInterpreter.class);
 
   private final String className; // fully qualified internal class name
+
   private int index = 0;
   private final List<ReplacingBasicValue> valueList;
 
-  public ReplacingInterpreter(final String className, final List<ReplacingBasicValue> valueList) {
+  public ReplacingInterpreter(final String className,
+                              final List<ReplacingBasicValue> valueList) {
     super(CompilationConfig.ASM_API_VERSION);
     this.className = className;
     this.valueList = valueList;

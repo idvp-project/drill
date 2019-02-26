@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.compile.bytecode;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -138,7 +139,7 @@ public class ReplacingBasicValue extends BasicValue {
    */
   private IdentityHashMap<ReplacingBasicValue, ReplacingBasicValue> associates = null;
   // TODO remove?
-  private HashSet<Integer> frameSlots = null; // slots in stack frame this has been assigned to
+  HashMap<Integer, Object> frameSlots = null; // slots in stack frame this has been assigned to
 
   /**
    * Create a new value representing a holder (boxed value).
@@ -149,8 +150,10 @@ public class ReplacingBasicValue extends BasicValue {
    * @param valueList TODO
    * @return
    */
-  public static ReplacingBasicValue create(final Type type, final ValueHolderIden iden, final int index,
-      final List<ReplacingBasicValue> valueList) {
+  public static ReplacingBasicValue create(final Type type,
+                                           final ValueHolderIden iden,
+                                           final int index,
+                                           final List<ReplacingBasicValue> valueList) {
     final ReplacingBasicValue replacingValue = new ReplacingBasicValue(type, iden, index);
     valueList.add(replacingValue);
     return replacingValue;
@@ -203,6 +206,13 @@ public class ReplacingBasicValue extends BasicValue {
     }
   }
 
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    dump(sb, 0);
+    return sb.toString();
+  }
+
   private ReplacingBasicValue(final Type type, final ValueHolderIden iden, final int index) {
     super(type);
     this.iden = iden;
@@ -222,7 +232,7 @@ public class ReplacingBasicValue extends BasicValue {
   private void dumpFrameSlots(final StringBuilder sb) {
     if (frameSlots != null) {
       boolean first = true;
-      for(Integer i : frameSlots) {
+      for(Integer i : frameSlots.keySet()) {
         if (!first) {
           sb.append(' ');
         }
@@ -232,11 +242,16 @@ public class ReplacingBasicValue extends BasicValue {
     }
   }
 
-  public void setFrameSlot(final int frameSlot) {
+  public void setFrameSlot(final int frameSlot,
+                           final Object localVariableRef) {
     if (frameSlots == null) {
-      frameSlots = new HashSet<>();
+      frameSlots = new HashMap<>();
     }
-    frameSlots.add(frameSlot);
+    frameSlots.putIfAbsent(frameSlot, localVariableRef);
+  }
+
+  boolean containsLocalVariable(final Object ref) {
+    return frameSlots != null && frameSlots.values().contains(ref);
   }
 
   /**
