@@ -23,7 +23,7 @@
   <parent>
     <artifactId>exec-parent</artifactId>
     <groupId>org.apache.drill.exec</groupId>
-    <version>1.14.0-0.4.0.1</version>
+    <version>1.14.0-0.4.0.2</version>
   </parent>
   <artifactId>vector</artifactId>
   <name>exec/Vectors</name>
