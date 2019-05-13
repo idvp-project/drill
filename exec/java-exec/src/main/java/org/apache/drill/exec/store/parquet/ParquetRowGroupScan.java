@@ -67,6 +67,7 @@ public class ParquetRowGroupScan extends AbstractParquetRowGroupScan {
         filter);
   }
 
+  // Should be open for custom idvp data functions
   public ParquetRowGroupScan(String userName,
                              ParquetFormatPlugin formatPlugin,
                              List<RowGroupReadEntry> rowGroupReadEntries,

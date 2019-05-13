@@ -56,15 +56,16 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
   private final boolean corruptDatesAutoCorrected;
   private boolean usedMetadataCache; // false by default
 
-  private ParquetTableMetadataProviderImpl(List<ReadEntryWithPath> entries,
-                                           Path selectionRoot,
-                                           Path cacheFileRoot,
-                                           ParquetReaderConfig readerConfig,
-                                           DrillFileSystem fs,
-                                           boolean autoCorrectCorruptedDates,
-                                           ParquetMetadataProvider source,
-                                           TupleMetadata schema,
-                                           DrillStatsTable statsTable) throws IOException {
+  // Should be open for custom idvp data functions
+  protected ParquetTableMetadataProviderImpl(List<ReadEntryWithPath> entries,
+                                             Path selectionRoot,
+                                             Path cacheFileRoot,
+                                             ParquetReaderConfig readerConfig,
+                                             DrillFileSystem fs,
+                                             boolean autoCorrectCorruptedDates,
+                                             ParquetMetadataProvider source,
+                                             TupleMetadata schema,
+                                             DrillStatsTable statsTable) throws IOException {
     super(entries, readerConfig, selectionRoot != null ? selectionRoot.toUri().getPath() : "", selectionRoot, schema, statsTable);
     this.fs = fs;
     this.selectionRoot = selectionRoot;
@@ -76,13 +77,14 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
     init((BaseParquetMetadataProvider) source);
   }
 
-  private ParquetTableMetadataProviderImpl(FileSelection selection,
-                                           ParquetReaderConfig readerConfig,
-                                           DrillFileSystem fs,
-                                           boolean autoCorrectCorruptedDates,
-                                           ParquetMetadataProvider source,
-                                           TupleMetadata schema,
-                                           DrillStatsTable statsTable) throws IOException {
+  // Should be open for custom idvp data functions
+  protected ParquetTableMetadataProviderImpl(FileSelection selection,
+                                             ParquetReaderConfig readerConfig,
+                                             DrillFileSystem fs,
+                                             boolean autoCorrectCorruptedDates,
+                                             ParquetMetadataProvider source,
+                                             TupleMetadata schema,
+                                             DrillStatsTable statsTable) throws IOException {
     super(readerConfig, new ArrayList<>(),
         selection.getSelectionRoot() != null ? selection.getSelectionRoot().toUri().getPath() : "", selection.getSelectionRoot(), schema, statsTable);
 

@@ -106,6 +106,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     init();
   }
 
+  // Should be open for custom idvp data functions
   public ParquetGroupScan(String userName,
                           FileSelection selection,
                           ParquetFormatPlugin formatPlugin,
@@ -115,6 +116,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this(userName, selection, formatPlugin, columns, readerConfig, ValueExpressions.BooleanExpression.TRUE, metadataProviderManager);
   }
 
+  // Should be open for custom idvp data functions
   public ParquetGroupScan(String userName,
                           FileSelection selection,
                           ParquetFormatPlugin formatPlugin,
@@ -157,6 +159,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * Copy constructor for shallow partial cloning
    * @param that old groupScan
    */
+  // Should be open for custom idvp data functions
   public ParquetGroupScan(ParquetGroupScan that) {
     this(that, null);
   }
@@ -166,7 +169,8 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * @param that old groupScan
    * @param selection new selection
    */
-  private ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
+  // Should be open for custom idvp data functions
+  public ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
     super(that);
     this.formatConfig = that.formatConfig;
     this.formatPlugin = that.formatPlugin;
