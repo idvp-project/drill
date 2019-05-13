@@ -30,7 +30,7 @@
 
   <groupId>org.apache.drill</groupId>
   <artifactId>drill-root</artifactId>
-  <version>1.16.0</version>
+  <version>1.16.0-0.4.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Drill Root POM</name>
@@ -775,6 +775,8 @@
               -Djava.awt.headless=true
               -XX:+CMSClassUnloadingEnabled -ea
               -Djdk.attach.allowAttachSelf=true
+              -Duser.language=en
+              -Duser.country=US
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
             </argLine>
             <forkCount>${forkCount}</forkCount>
@@ -3581,4 +3583,15 @@
     <module>drill-yarn</module>
     <module>distribution</module>
   </modules>
+
+  <distributionManagement>
+    <repository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>

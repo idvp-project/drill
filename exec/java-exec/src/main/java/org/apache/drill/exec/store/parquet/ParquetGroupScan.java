@@ -157,7 +157,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * Copy constructor for shallow partial cloning
    * @param that old groupScan
    */
-  private ParquetGroupScan(ParquetGroupScan that) {
+  public ParquetGroupScan(ParquetGroupScan that) {
     this(that, null);
   }
 

@@ -17,15 +17,23 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.rules.FilterJoinRule;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.drill.exec.planner.DrillRelBuilder;
+import org.apache.drill.exec.planner.physical.Prel;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 public class DrillFilterJoinRules {
@@ -86,16 +94,58 @@ public class DrillFilterJoinRules {
 
   /** Rule that pushes predicates from a Filter into the Join below them. */
   public static final FilterJoinRule FILTER_INTO_JOIN =
-      new FilterJoinRule.FilterIntoJoinRule(true, DrillRelFactories.LOGICAL_BUILDER, EQUAL_IS_DISTINCT_FROM);
+      new DrillFilterIntoJoinRule(true, DrillRelFactories.LOGICAL_BUILDER, EQUAL_IS_DISTINCT_FROM);
 
   /** The same as above, but with Drill's operators. */
   public static final FilterJoinRule DRILL_FILTER_INTO_JOIN =
-      new FilterJoinRule.FilterIntoJoinRule(true,
+      new DrillFilterIntoJoinRule(true,
           DrillRelBuilder.proto(DrillRelFactories.DRILL_LOGICAL_PROJECT_FACTORY,
               DrillRelFactories.DRILL_LOGICAL_FILTER_FACTORY), STRICT_EQUAL_IS_DISTINCT_FROM);
 
   /** Rule that pushes predicates in a Join into the inputs to the join. */
   public static final FilterJoinRule JOIN_PUSH_CONDITION =
-      new FilterJoinRule.JoinConditionPushRule(DrillRelFactories.LOGICAL_BUILDER, EQUAL_IS_DISTINCT_FROM);
+      new DrillJoinConditionPushRule(DrillRelFactories.LOGICAL_BUILDER, EQUAL_IS_DISTINCT_FROM);
+
+  public static class DrillFilterIntoJoinRule extends FilterJoinRule.FilterIntoJoinRule {
+
+    DrillFilterIntoJoinRule(boolean smart, RelBuilderFactory relBuilderFactory, Predicate predicate) {
+      super(smart, relBuilderFactory, predicate);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      Filter filter = call.rel(0);
+      Join join = call.rel(1);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(filter.getTraitSet().getTrait(ConventionTraitDef.INSTANCE))
+        && conventions.contains(join.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+  }
+
+  public static class DrillJoinConditionPushRule extends FilterJoinRule.JoinConditionPushRule {
+
+    DrillJoinConditionPushRule(RelBuilderFactory relBuilderFactory, Predicate predicate) {
+      super(relBuilderFactory, predicate);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      if (!super.matches(call)) {
+        return false;
+      }
+
+      Join join = call.rel(0);
+
+      Collection<Convention> conventions = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL, Prel.DRILL_PHYSICAL, null);
+
+      return conventions.contains(join.getTraitSet().getTrait(ConventionTraitDef.INSTANCE));
+    }
+  }
 
 }

@@ -43,7 +43,8 @@
     "ESTIMATE",
     "STATISTICS",
     "SAMPLE",
-    "COLUMNS"
+    "COLUMNS",
+    "PLUGIN"
   ]
 
   # List of methods for parsing custom SQL statements.
@@ -59,7 +60,9 @@
     "SqlRefreshMetadata()",
     "SqlCreateFunction()",
     "SqlDropFunction()",
-    "SqlAnalyzeTable()"
+    "SqlAnalyzeTable()",
+    "SqlShowPlugin()",
+    "SqlDropPlugin()"
   ]
 
   # List of methods for parsing custom literals.

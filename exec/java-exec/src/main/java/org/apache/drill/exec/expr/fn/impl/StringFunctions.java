@@ -475,7 +475,7 @@ public class StringFunctions{
   /*
    * Convert string to lower case.
    */
-  @FunctionTemplate(name = "lower",
+  @FunctionTemplate(names = { "lower", "to_lower" },
       scope = FunctionScope.SIMPLE,
       returnType = ReturnType.SAME_IN_OUT_LENGTH,
       nulls = NullHandling.NULL_IF_NULL,
@@ -504,7 +504,7 @@ public class StringFunctions{
   /*
    * Convert string to upper case.
    */
-  @FunctionTemplate(name = "upper",
+  @FunctionTemplate(names = { "upper", "to_upper" },
       scope = FunctionScope.SIMPLE,
       returnType = ReturnType.SAME_IN_OUT_LENGTH,
       outputWidthCalculatorType = OutputWidthCalculatorType.CLONE,

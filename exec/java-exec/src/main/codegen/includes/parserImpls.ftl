@@ -216,6 +216,14 @@ SqlNode SqlCreateOrReplace() :
                  }
                  return SqlCreateSchema(pos, createType);
              }
+    |
+        <PLUGIN>
+            {
+                if (isTemporary) {
+                    throw new ParseException("Create plugin statement does not allow <TEMPORARY> keyword.");
+            }
+            return SqlCreatePlugin(pos, createType);
+        }
     )
 }
 
@@ -352,6 +360,33 @@ SqlNode SqlCreateSchema(SqlParserPos pos, String createType) :
     }
 }
 
+/**
+* Parses create plugin statement after CREATE OR REPLACE PLUGIN statement
+* which is handled in the SqlCreateOrReplace method.
+*
+* CREATE [OR REPLACE] PLUGIN name USING '{ }'
+*/
+SqlNode SqlCreatePlugin(SqlParserPos pos, String createType) :
+{
+    SqlIdentifier pluginName;
+    SqlNode configuration;
+}
+{
+    [
+        <IF> <NOT> <EXISTS> {
+            if (createType == "OR_REPLACE") {
+                throw new ParseException("Create plugin statement cannot have both <OR REPLACE> and <IF NOT EXISTS> clause");
+            }
+            createType = "IF_NOT_EXISTS";
+        }
+    ]
+    pluginName = SimpleIdentifier()
+    <USING>
+    configuration = StringLiteral()
+    {
+        return new SqlCreatePlugin(pos, pluginName, SqlLiteral.createCharString(createType, getPos()), configuration);
+    }
+}
 /**
 * Helper method to add string literals divided by equals into SqlNodeList.
 */
@@ -531,6 +566,43 @@ SqlNode SqlDescribeSchema() :
                  return new SqlDescribeSchema(pos, CompoundIdentifier());
             }
    )
+}
+
+
+/**
+* Parses statement
+*   SHOW PLUGIN name
+*/
+SqlNode SqlShowPlugin() :
+{
+   SqlParserPos pos;
+   SqlIdentifier name;
+}
+{
+   <SHOW> { pos = getPos(); }
+   <PLUGIN>
+   name = SimpleIdentifier()
+   {
+        return new SqlShowPlugin(pos, name);
+   }
+}
+
+/**
+ * Parses a drop storage or drop storage if exists statement.
+ * DROP STORE [IF EXISTS] storage_name;
+ */
+SqlNode SqlDropPlugin() :
+{
+    SqlParserPos pos;
+    boolean storageExistenceCheck = false;
+}
+{
+    <DROP> { pos = getPos(); }
+    <PLUGIN>
+    [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
+    {
+        return new SqlDropPlugin(pos, SimpleIdentifier(), storageExistenceCheck);
+    }
 }
 
 /**

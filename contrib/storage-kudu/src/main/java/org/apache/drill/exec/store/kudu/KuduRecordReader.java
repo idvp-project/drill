@@ -60,9 +60,9 @@ import org.apache.kudu.client.KuduScanner.KuduScannerBuilder;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
-import org.apache.kudu.client.shaded.com.google.common.collect.ImmutableMap;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class KuduRecordReader extends AbstractRecordReader {

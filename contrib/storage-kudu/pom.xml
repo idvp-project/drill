@@ -23,7 +23,7 @@
   <parent>
     <artifactId>drill-contrib-parent</artifactId>
     <groupId>org.apache.drill.contrib</groupId>
-    <version>1.16.0</version>
+    <version>1.16.0-0.4.1-SNAPSHOT</version>
   </parent>
 
   <artifactId>drill-kudu-storage</artifactId>
@@ -57,7 +57,7 @@
     <dependency>
       <groupId>org.apache.kudu</groupId>
       <artifactId>kudu-client</artifactId>
-      <version>1.3.0</version>
+      <version>1.7.0</version>
     </dependency>
 
   </dependencies>
