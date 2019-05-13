@@ -54,7 +54,6 @@ import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.drill.exec.planner.logical.DrillConditions;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.DrillRelFactories;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.exec.planner.physical.Prel;
 
 import java.util.Arrays;
