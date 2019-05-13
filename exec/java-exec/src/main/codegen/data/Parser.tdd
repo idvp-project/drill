@@ -61,8 +61,7 @@
     "SqlCreateFunction()",
     "SqlDropFunction()",
     "SqlAnalyzeTable()",
-    "SqlShowPlugin()",
-    "SqlDropPlugin()"
+    "SqlShowPlugin()"
   ]
 
   # List of methods for parsing custom literals.

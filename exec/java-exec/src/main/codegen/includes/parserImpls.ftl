@@ -440,6 +440,11 @@ SqlNode SqlDrop() :
         {
             return SqlDropSchema(pos);
         }
+    |
+        <PLUGIN>
+        {
+            return SqlDropPlugin(pos);
+        }
     )
 }
 
@@ -494,6 +499,21 @@ SqlNode SqlDropSchema(SqlParserPos pos) :
     <FOR> <TABLE> { table = CompoundIdentifier(); }
     {
         return new SqlSchema.Drop(pos, table, SqlLiteral.createBoolean(existenceCheck, getPos()));
+    }
+}
+
+/**
+* Parses a drop storage or drop storage if exists statement.
+* DROP STORE [IF EXISTS] storage_name;
+*/
+SqlNode SqlDropPlugin(SqlParserPos pos) :
+{
+    boolean storageExistenceCheck = false;
+}
+{
+    [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
+    {
+        return new SqlDropPlugin(pos, SimpleIdentifier(), storageExistenceCheck);
     }
 }
 
@@ -585,24 +605,6 @@ SqlNode SqlShowPlugin() :
    {
         return new SqlShowPlugin(pos, name);
    }
-}
-
-/**
- * Parses a drop storage or drop storage if exists statement.
- * DROP STORE [IF EXISTS] storage_name;
- */
-SqlNode SqlDropPlugin() :
-{
-    SqlParserPos pos;
-    boolean storageExistenceCheck = false;
-}
-{
-    <DROP> { pos = getPos(); }
-    <PLUGIN>
-    [ <IF> <EXISTS> { storageExistenceCheck = true; } ]
-    {
-        return new SqlDropPlugin(pos, SimpleIdentifier(), storageExistenceCheck);
-    }
 }
 
 /**
