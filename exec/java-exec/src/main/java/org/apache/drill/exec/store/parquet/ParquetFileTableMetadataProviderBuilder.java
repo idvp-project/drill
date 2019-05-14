@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.parquet;
 
 import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.exec.physical.base.TableMetadataProviderBuilder;
+import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
@@ -30,6 +31,8 @@ import java.util.List;
  * Builder for {@link ParquetTableMetadataProvider}.
  */
 public interface ParquetFileTableMetadataProviderBuilder extends TableMetadataProviderBuilder {
+
+  ParquetFileTableMetadataProviderBuilder withDrillbitContext(DrillbitContext context);
 
   ParquetFileTableMetadataProviderBuilder withEntries(List<ReadEntryWithPath> entries);
 

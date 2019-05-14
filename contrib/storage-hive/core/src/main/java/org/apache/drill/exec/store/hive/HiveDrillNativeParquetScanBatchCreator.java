@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.hive;
 
+import org.apache.drill.exec.store.RecordReader;
+import org.apache.drill.exec.store.parquet.AbstractParquetRowGroupScan;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
@@ -31,6 +33,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,11 @@ public class HiveDrillNativeParquetScanBatchCreator extends AbstractParquetScanB
     Preconditions.checkArgument(children.isEmpty());
     OperatorContext oContext = context.newOperatorContext(rowGroupScan);
     return getBatch(context, rowGroupScan, oContext);
+  }
+
+  @Override
+  protected Collection<RecordReader> createEmptyParquetReader(AbstractDrillFileSystemManager fsManager, AbstractParquetRowGroupScan rowGroupScan) throws ExecutionSetupException {
+    throw new IllegalStateException("Empty parquet files not supported");
   }
 
   @Override

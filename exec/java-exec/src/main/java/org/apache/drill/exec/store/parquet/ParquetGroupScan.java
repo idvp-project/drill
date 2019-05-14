@@ -42,6 +42,7 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
@@ -106,24 +107,22 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     init();
   }
 
-  // Should be open for custom idvp data functions
-  public ParquetGroupScan(String userName,
-                          FileSelection selection,
-                          ParquetFormatPlugin formatPlugin,
-                          List<SchemaPath> columns,
-                          ParquetReaderConfig readerConfig,
-                          MetadataProviderManager metadataProviderManager) throws IOException {
+  ParquetGroupScan(String userName,
+                   FileSelection selection,
+                   ParquetFormatPlugin formatPlugin,
+                   List<SchemaPath> columns,
+                   ParquetReaderConfig readerConfig,
+                   MetadataProviderManager metadataProviderManager) throws IOException {
     this(userName, selection, formatPlugin, columns, readerConfig, ValueExpressions.BooleanExpression.TRUE, metadataProviderManager);
   }
 
-  // Should be open for custom idvp data functions
-  public ParquetGroupScan(String userName,
-                          FileSelection selection,
-                          ParquetFormatPlugin formatPlugin,
-                          List<SchemaPath> columns,
-                          ParquetReaderConfig readerConfig,
-                          LogicalExpression filter,
-                          MetadataProviderManager metadataProviderManager) throws IOException {
+  private ParquetGroupScan(String userName,
+                           FileSelection selection,
+                           ParquetFormatPlugin formatPlugin,
+                           List<SchemaPath> columns,
+                           ParquetReaderConfig readerConfig,
+                           LogicalExpression filter,
+                           MetadataProviderManager metadataProviderManager) throws IOException {
     super(userName, columns, new ArrayList<>(), readerConfig, filter);
 
     this.formatPlugin = formatPlugin;
@@ -140,6 +139,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
         (ParquetFileTableMetadataProviderBuilder) metadataProviderManager.builder(MetadataProviderManager.MetadataProviderKind.PARQUET_TABLE);
 
     this.metadataProvider = builder
+        .withDrillbitContext(formatPlugin.getContext())
         .withSelection(selection)
         .withReaderConfig(readerConfig)
         .withFileSystem(fs)
@@ -160,7 +160,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * @param that old groupScan
    */
   // Should be open for custom idvp data functions
-  public ParquetGroupScan(ParquetGroupScan that) {
+  private ParquetGroupScan(ParquetGroupScan that) {
     this(that, null);
   }
 
@@ -170,7 +170,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * @param selection new selection
    */
   // Should be open for custom idvp data functions
-  public ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
+  private ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
     super(that);
     this.formatConfig = that.formatConfig;
     this.formatPlugin = that.formatPlugin;
@@ -210,6 +210,11 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
   @Override
   public ParquetRowGroupScan getSpecificScan(int minorFragmentId) {
+    if (mappings.isEmpty()) {
+      // Empty parquet file
+      return new ParquetRowGroupScan(getUserName(), formatPlugin, ImmutableList.of(), columns, readerConfig, selectionRoot, filter);
+    }
+
     return new ParquetRowGroupScan(getUserName(), formatPlugin, getReadEntries(minorFragmentId), columns, readerConfig, selectionRoot, filter);
   }
 

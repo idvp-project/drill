@@ -89,6 +89,9 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   public static final String WRITER_VERSION_PROPERTY = "drill-writer.version";
 
   private final StorageStrategy storageStrategy;
+
+  private final boolean emptyParquetSupported;
+
   private ParquetFileWriter parquetFileWriter;
   private MessageType schema;
   private Map<String, String> extraMetaData = new HashMap<>();
@@ -133,6 +136,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     this.storageStrategy = writer.getStorageStrategy() == null ? StorageStrategy.DEFAULT : writer.getStorageStrategy();
     this.cleanUpLocations = Lists.newArrayList();
     this.conf = new Configuration(writer.getFormatPlugin().getFsConf());
+    this.emptyParquetSupported = context.getOptions().getOption(ExecConstants.EMPTY_PARQUET_FILE_SUPPORTED_VALIDATOR);
   }
 
   @Override
@@ -205,7 +209,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   public void updateSchema(VectorAccessible batch) throws IOException {
     if (this.batchSchema == null || !this.batchSchema.equals(batch.getSchema()) || containsComplexVectors(this.batchSchema)) {
       if (this.batchSchema != null) {
-        flush();
+        flush(false);
       }
       this.batchSchema = batch.getSchema();
       newSchema();
@@ -310,7 +314,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     try {
       boolean newPartition = newPartition(index);
       if (newPartition) {
-        flush();
+        flush(false);
         newSchema();
       }
     } catch (Exception e) {
@@ -318,19 +322,21 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     }
   }
 
-  private void flush() throws IOException {
+  private void flush(boolean cleanUp) throws IOException {
     try {
       if (recordCount > 0) {
-        parquetFileWriter.startBlock(recordCount);
-        consumer.flush();
-        store.flush();
-        pageStore.flushToFileWriter(parquetFileWriter);
-        recordCount = 0;
-        parquetFileWriter.endBlock();
+        flushParquetFileWriter();
+      } else {
+        // Write empty parquet if:
+        // CLEANUP phase
+        // Empty parquet files supported
+        // Schema is set
+        // Schema is not empty
+        if (cleanUp && emptyParquetSupported && schema != null && schema.getFieldCount() > 0) {
+          createParquetFileWriter();
 
-        // we are writing one single block per file
-        parquetFileWriter.end(extraMetaData);
-        parquetFileWriter = null;
+          flushParquetFileWriter();
+        }
       }
     } finally {
       store.close();
@@ -347,7 +353,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
       long memSize = store.getBufferedSize();
       if (memSize > blockSize) {
         logger.debug("Reached block size " + blockSize);
-        flush();
+        flush(false);
         newSchema();
         recordCountForNextMemCheck = min(max(MINIMUM_RECORD_COUNT_FOR_CHECK, recordCount / 2), MAXIMUM_RECORD_COUNT_FOR_CHECK);
       } else {
@@ -434,30 +440,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     consumer.endMessage();
 
     // we wait until there is at least one record before creating the parquet file
-    if (parquetFileWriter == null) {
-      Path path = new Path(location, prefix + "_" + index + ".parquet");
-      // to ensure that our writer was the first to create output file, we create empty file first and fail if file exists
-      Path firstCreatedPath = storageStrategy.createFileAndApply(fs, path);
-
-      // since parquet reader supports partitions, it means that several output files may be created
-      // if this writer was the one to create table folder, we store only folder and delete it with its content in case of abort
-      // if table location was created before, we store only files created by this writer and delete them in case of abort
-      addCleanUpLocation(fs, firstCreatedPath);
-
-      // since ParquetFileWriter will overwrite empty output file (append is not supported)
-      // we need to re-apply file permission
-      if (useSingleFSBlock) {
-        // Passing blockSize creates files with this blockSize instead of filesystem default blockSize.
-        // Currently, this is supported only by filesystems included in
-        // BLOCK_FS_SCHEMES (ParquetFileWriter.java in parquet-mr), which includes HDFS.
-        // For other filesystems, it uses default blockSize configured for the file system.
-        parquetFileWriter = new ParquetFileWriter(conf, schema, path, ParquetFileWriter.Mode.OVERWRITE, blockSize, 0);
-      } else {
-        parquetFileWriter = new ParquetFileWriter(conf, schema, path, ParquetFileWriter.Mode.OVERWRITE);
-      }
-      storageStrategy.applyToFile(fs, path);
-      parquetFileWriter.start();
-    }
+    createParquetFileWriter();
     recordCount++;
     checkBlockSizeReached();
   }
@@ -486,7 +469,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
 
   @Override
   public void cleanup() throws IOException {
-    flush();
+    flush(true);
 
     codecFactory.release();
   }
@@ -513,4 +496,47 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
       cleanUpLocations.add(location);
     }
   }
+
+  private void createParquetFileWriter() throws IOException {
+    if (parquetFileWriter == null) {
+      Path path = new Path(location, prefix + "_" + index + ".parquet");
+      // to ensure that our writer was the first to create output file, we create empty file first and fail if file exists
+      Path firstCreatedPath = storageStrategy.createFileAndApply(fs, path);
+
+      // since parquet reader supports partitions, it means that several output files may be created
+      // if this writer was the one to create table folder, we store only folder and delete it with its content in case of abort
+      // if table location was created before, we store only files created by this writer and delete them in case of abort
+      addCleanUpLocation(fs, firstCreatedPath);
+
+      // since ParquetFileWriter will overwrite empty output file (append is not supported)
+      // we need to re-apply file permission
+      if (useSingleFSBlock) {
+        // Passing blockSize creates files with this blockSize instead of filesystem default blockSize.
+        // Currently, this is supported only by filesystems included in
+        // BLOCK_FS_SCHEMES (ParquetFileWriter.java in parquet-mr), which includes HDFS.
+        // For other filesystems, it uses default blockSize configured for the file system.
+        parquetFileWriter = new ParquetFileWriter(conf, schema, path, ParquetFileWriter.Mode.OVERWRITE, blockSize, 0);
+      } else {
+        parquetFileWriter = new ParquetFileWriter(conf, schema, path, ParquetFileWriter.Mode.OVERWRITE);
+
+
+      }
+      storageStrategy.applyToFile(fs, path);
+      parquetFileWriter.start();
+    }
+  }
+
+  private void flushParquetFileWriter() throws IOException {
+    parquetFileWriter.startBlock(recordCount);
+    consumer.flush();
+    store.flush();
+    pageStore.flushToFileWriter(parquetFileWriter);
+    recordCount = 0;
+    parquetFileWriter.endBlock();
+
+    // we are writing one single block per file
+    parquetFileWriter.end(extraMetaData);
+    parquetFileWriter = null;
+  }
+
 }

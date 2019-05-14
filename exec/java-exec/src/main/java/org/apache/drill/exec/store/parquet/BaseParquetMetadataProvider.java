@@ -186,7 +186,7 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
     if (tableMetadata == null) {
       Map<StatisticsKind, Object> tableStatistics = new HashMap<>(DrillStatsTable.getEstimatedTableStats(statsTable));
       Set<String> partitionKeys = new HashSet<>();
-      Map<SchemaPath, TypeProtos.MajorType> fields = ParquetTableMetadataUtils.resolveFields(parquetTableMetadata);
+      Map<SchemaPath, TypeProtos.MajorType> fields = ParquetTableMetadataUtils.resolveFields(parquetTableMetadata, getEmtpyTableMetadataSupplier());
 
       if (this.schema == null) {
         schema = new TupleSchema();
@@ -241,6 +241,10 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
     }
 
     return tableMetadata;
+  }
+
+  protected ParquetTableMetadataUtils.EmptyParquetMetadataSupplier getEmtpyTableMetadataSupplier() {
+    return null;
   }
 
   private ParquetGroupScanStatistics<? extends BaseMetadata> getParquetGroupScanStatistics() {

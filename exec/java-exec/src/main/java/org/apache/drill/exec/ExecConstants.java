@@ -1017,4 +1017,11 @@ public final class ExecConstants {
   public static final RangeLongValidator QUERY_MAX_ROWS_VALIDATOR = new RangeLongValidator(QUERY_MAX_ROWS, 0, Integer.MAX_VALUE,
       new OptionDescription("The maximum number of rows that the query will return. This can be only set at a SYSTEM level by an admin. (Drill 1.16+)"));
 
+
+  /**
+   * Controls the 'empty parquet file' support
+   */
+  public static final String EMPTY_PARQUET_FILE_SUPPORTED = "store.parquet.empty.files.supported";
+  public static final BooleanValidator EMPTY_PARQUET_FILE_SUPPORTED_VALIDATOR = new BooleanValidator(EMPTY_PARQUET_FILE_SUPPORTED,
+    new OptionDescription("Empty parquet file supported"));
 }

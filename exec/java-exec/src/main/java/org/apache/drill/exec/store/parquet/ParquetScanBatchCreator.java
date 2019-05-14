@@ -17,6 +17,11 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.exec.store.RecordReader;
+import org.apache.drill.exec.store.parquet.columnreaders.EmptyParquetReader;
+import org.apache.drill.exec.store.parquet.metadata.Metadata;
+import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
+import org.apache.drill.exec.store.parquet.metadata.Metadata_V4;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ExecConstants;
@@ -27,11 +32,16 @@ import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class ParquetScanBatchCreator extends AbstractParquetScanBatchCreator implements BatchCreator<ParquetRowGroupScan> {
 
@@ -40,6 +50,36 @@ public class ParquetScanBatchCreator extends AbstractParquetScanBatchCreator imp
     Preconditions.checkArgument(children.isEmpty());
     OperatorContext oContext = context.newOperatorContext(rowGroupScan);
     return getBatch(context, rowGroupScan, oContext);
+  }
+
+  @Override
+  protected Collection<RecordReader> createEmptyParquetReader(AbstractDrillFileSystemManager fsManager,
+                                                              AbstractParquetRowGroupScan rowGroupScan) throws ExecutionSetupException {
+    try {
+      ImmutableList.Builder<RecordReader> readers = ImmutableList.builder();
+      ParquetRowGroupScan scan = (ParquetRowGroupScan) rowGroupScan;
+
+      ParquetReaderConfig readerConfig = rowGroupScan.getReaderConfig();
+
+      try (DrillFileSystem fs = fsManager.get(rowGroupScan.getFsConf(null), scan.getSelectionRoot())) {
+        Metadata_V4.ParquetTableMetadata_v4 metadata = Metadata.getParquetTableMetadata(fs, scan.getSelectionRoot().toString(), scan.getReaderConfig());
+        for (MetadataBase.ParquetFileMetadata file : metadata.getFiles()) {
+          Stopwatch timer = logger.isTraceEnabled() ? Stopwatch.createUnstarted() : null;
+
+          ParquetMetadata footer = readFooter(scan.getFsConf(null), file.getPath(), readerConfig);
+          readers.add(new EmptyParquetReader(scan, footer));
+
+          if (timer != null) {
+            long timeToRead = timer.elapsed(TimeUnit.MICROSECONDS);
+            logger.trace("ParquetTrace,Read Footer,{},{},{},{},{},{},{}", "", file.getPath(), "", 0, 0, 0, timeToRead);
+          }
+        }
+      }
+
+      return readers.build();
+    } catch (IOException e) {
+      throw new ExecutionSetupException(e);
+    }
   }
 
   @Override

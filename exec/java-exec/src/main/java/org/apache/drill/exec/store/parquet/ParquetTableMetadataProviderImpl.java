@@ -17,26 +17,36 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.MetadataProviderManager;
 import org.apache.drill.exec.physical.base.ParquetMetadataProvider;
 import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.schema.SchemaProvider;
+import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.MetadataContext;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
+import org.apache.drill.exec.store.parquet.columnreaders.ParquetColumnMetadata;
+import org.apache.drill.exec.store.parquet.columnreaders.ParquetSchema;
 import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.drill.shaded.guava.com.google.common.base.Throwables;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,23 +60,19 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
 
   private final DrillFileSystem fs;
   private final MetadataContext metaContext;
+
+  private final DrillbitContext context;
+
   // may change when filter push down / partition pruning is applied
   private Path selectionRoot;
   private Path cacheFileRoot;
   private final boolean corruptDatesAutoCorrected;
   private boolean usedMetadataCache; // false by default
 
-  // Should be open for custom idvp data functions
-  protected ParquetTableMetadataProviderImpl(List<ReadEntryWithPath> entries,
-                                             Path selectionRoot,
-                                             Path cacheFileRoot,
-                                             ParquetReaderConfig readerConfig,
-                                             DrillFileSystem fs,
-                                             boolean autoCorrectCorruptedDates,
-                                             ParquetMetadataProvider source,
-                                             TupleMetadata schema,
-                                             DrillStatsTable statsTable) throws IOException {
+  private ParquetTableMetadataProviderImpl(DrillbitContext context, List<ReadEntryWithPath> entries, Path selectionRoot, Path cacheFileRoot, ParquetReaderConfig readerConfig, DrillFileSystem fs, boolean autoCorrectCorruptedDates, ParquetMetadataProvider source, TupleMetadata schema, DrillStatsTable statsTable) throws IOException {
     super(entries, readerConfig, selectionRoot != null ? selectionRoot.toUri().getPath() : "", selectionRoot, schema, statsTable);
+    this.context = context;
+
     this.fs = fs;
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
@@ -77,17 +83,11 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
     init((BaseParquetMetadataProvider) source);
   }
 
-  // Should be open for custom idvp data functions
-  protected ParquetTableMetadataProviderImpl(FileSelection selection,
-                                             ParquetReaderConfig readerConfig,
-                                             DrillFileSystem fs,
-                                             boolean autoCorrectCorruptedDates,
-                                             ParquetMetadataProvider source,
-                                             TupleMetadata schema,
-                                             DrillStatsTable statsTable) throws IOException {
+  private ParquetTableMetadataProviderImpl(DrillbitContext context, FileSelection selection, ParquetReaderConfig readerConfig, DrillFileSystem fs, boolean autoCorrectCorruptedDates, ParquetMetadataProvider source, TupleMetadata schema, DrillStatsTable statsTable) throws IOException {
     super(readerConfig, new ArrayList<>(),
         selection.getSelectionRoot() != null ? selection.getSelectionRoot().toUri().getPath() : "", selection.getSelectionRoot(), schema, statsTable);
 
+    this.context = context;
     this.fs = fs;
     this.selectionRoot = selection.getSelectionRoot();
     this.cacheFileRoot = selection.getCacheFileRoot();
@@ -153,6 +153,34 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
       }
     }
     return true;
+  }
+
+  @Override
+  protected ParquetTableMetadataUtils.EmptyParquetMetadataSupplier getEmtpyTableMetadataSupplier() {
+    return (metadata, file) -> {
+      try (FileSystem ufs = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), fs.getConf())) {
+        FileStatus status = ufs.getFileStatus(file.getPath());
+
+        try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, fs.getConf()), readerConfig.toReadOptions())) {
+          ParquetMetadata footer = reader.getFooter();
+
+          ParquetSchema schema = new ParquetSchema(context.getOptionManager(), 0, footer, null);
+          schema.buildSchema();
+
+          Map<SchemaPath, TypeProtos.MajorType> result = new HashMap<>();
+          for (ParquetColumnMetadata column : schema.getColumnMetadata()) {
+            SchemaPath path = SchemaPath.getCompoundPath(column.getField().getName());
+            result.put(path, column.getField().getType());
+          }
+
+          return result;
+
+
+        }
+      } catch (Exception e) {
+        throw Throwables.propagate(e);
+      }
+    };
   }
 
   @Override
@@ -398,8 +426,17 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
 
     private FileSelection selection;
 
+    private DrillbitContext context;
+
     public Builder(MetadataProviderManager source) {
       this.metadataProviderManager = source;
+    }
+
+
+    @Override
+    public ParquetFileTableMetadataProviderBuilder withDrillbitContext(DrillbitContext context) {
+      this.context = context;
+      return this;
     }
 
     @Override
@@ -469,10 +506,10 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
       }
       if (entries != null) {
         // reuse previously stored metadata
-        provider = new ParquetTableMetadataProviderImpl(entries, selectionRoot, cacheFileRoot, readerConfig, fs, autoCorrectCorruptedDates,
+        provider = new ParquetTableMetadataProviderImpl(context, entries, selectionRoot, cacheFileRoot, readerConfig, fs, autoCorrectCorruptedDates,
           source, schema, statsProvider);
       } else {
-        provider = new ParquetTableMetadataProviderImpl(selection, readerConfig, fs, autoCorrectCorruptedDates,
+        provider = new ParquetTableMetadataProviderImpl(context, selection, readerConfig, fs, autoCorrectCorruptedDates,
           source, schema, statsProvider);
       }
       // store results into FileSystemMetadataProviderManager to be able to use them when creating new instances

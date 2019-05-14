@@ -42,6 +42,7 @@ import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.exec.expr.ExactStatisticsConstants;
 import org.apache.drill.exec.expr.StatisticsProvider;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.LinkedListMultimap;
@@ -67,6 +68,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
  * Utility class for converting parquet metadata classes to metastore metadata classes.
@@ -556,10 +558,17 @@ public class ParquetTableMetadataUtils {
    *
    * @param parquetTableMetadata the source of primitive and original column types
    * @param file                 file whose columns should be discovered
+   * @param emptyParquetMetadataSupplier
    * @return map of column names with their drill types
    */
-  public static Map<SchemaPath, TypeProtos.MajorType> getFileFields(
-    MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ParquetFileMetadata file) {
+  public static Map<SchemaPath, TypeProtos.MajorType> getFileFields(MetadataBase.ParquetTableMetadataBase parquetTableMetadata,
+                                                                    MetadataBase.ParquetFileMetadata file,
+                                                                    EmptyParquetMetadataSupplier emptyParquetMetadataSupplier) {
+
+    if (file.getRowGroups().isEmpty()) {
+      Preconditions.checkArgument(emptyParquetMetadataSupplier != null, "Cannot extract table metadata from empty parquet file");
+      return emptyParquetMetadataSupplier.apply(parquetTableMetadata, file);
+    }
 
     // does not resolve types considering all row groups, just takes type from the first row group.
     return getRowGroupFields(parquetTableMetadata, file.getRowGroups().iterator().next());
@@ -657,11 +666,12 @@ public class ParquetTableMetadataUtils {
    * @param parquetTableMetadata table metadata whose columns should be discovered
    * @return map of column names with their drill types
    */
-  static Map<SchemaPath, TypeProtos.MajorType> resolveFields(MetadataBase.ParquetTableMetadataBase parquetTableMetadata) {
+  static Map<SchemaPath, TypeProtos.MajorType> resolveFields(MetadataBase.ParquetTableMetadataBase parquetTableMetadata,
+                                                             EmptyParquetMetadataSupplier emptyParquetMetadataSupplier) {
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
     for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
       // row groups in the file have the same schema, so using the first one
-      Map<SchemaPath, TypeProtos.MajorType> fileColumns = getFileFields(parquetTableMetadata, file);
+      Map<SchemaPath, TypeProtos.MajorType> fileColumns = getFileFields(parquetTableMetadata, file, emptyParquetMetadataSupplier);
       fileColumns.forEach((columnPath, type) -> {
         TypeProtos.MajorType majorType = columns.get(columnPath);
         if (majorType == null) {
@@ -694,5 +704,8 @@ public class ParquetTableMetadataUtils {
             ImmutableList.of(ColumnStatisticsKind.NULLS_COUNT), null);
 
     return tableMetadata.cloneWithStats(columnsStatistics, newStats);
+  }
+
+  interface EmptyParquetMetadataSupplier extends BiFunction<MetadataBase.ParquetTableMetadataBase, MetadataBase.ParquetFileMetadata, Map<SchemaPath, TypeProtos.MajorType>> {
   }
 }
