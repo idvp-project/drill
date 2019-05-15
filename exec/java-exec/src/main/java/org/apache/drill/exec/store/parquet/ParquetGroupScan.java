@@ -160,7 +160,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * @param that old groupScan
    */
   // Should be open for custom idvp data functions
-  private ParquetGroupScan(ParquetGroupScan that) {
+  public ParquetGroupScan(ParquetGroupScan that) {
     this(that, null);
   }
 
@@ -169,7 +169,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * @param that old groupScan
    * @param selection new selection
    */
-  // Should be open for custom idvp data functions
   private ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
     super(that);
     this.formatConfig = that.formatConfig;
