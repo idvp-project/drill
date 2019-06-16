@@ -43,7 +43,8 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
     final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
 
     test("CREATE TABLE dfs.tmp.%s AS SELECT * FROM cp.`employee.json` WHERE 1=0", outputFileName);
-    Assert.assertFalse(outputFile.exists());
+    Assert.assertTrue(outputFile.exists());
+    test("select * from dfs.tmp.%s", outputFileName);
   }
 
   @Test

@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.metastore.statistics.BaseStatisticsKind;
@@ -461,8 +462,24 @@ public class ParquetTableMetadataUtils {
   public static Map<SchemaPath, TypeProtos.MajorType> getFileFields(
     MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ParquetFileMetadata file) {
 
+    if (CollectionUtils.isEmpty(file.getRowGroups())) {
+      return getFooterFields(parquetTableMetadata, file.getFooter());
+    }
+
     // does not resolve types considering all row groups, just takes type from the first row group.
     return getRowGroupFields(parquetTableMetadata, file.getRowGroups().iterator().next());
+  }
+
+  /**
+   * Returns map of column names with their drill types for specified {@code footer}.
+   *
+   * @param parquetTableMetadata the source of primitive and original column types
+   * @param footer               parquet file footer whose columns should be discovered
+   * @return map of column names with their drill types
+   */
+  public static Map<SchemaPath, TypeProtos.MajorType> getFooterFields(
+          MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.FooterMetadata footer) {
+    return getFields(parquetTableMetadata, footer.getColumns());
   }
 
   /**
@@ -474,48 +491,7 @@ public class ParquetTableMetadataUtils {
    */
   public static Map<SchemaPath, TypeProtos.MajorType> getRowGroupFields(
       MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.RowGroupMetadata rowGroup) {
-    Map<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
-    for (MetadataBase.ColumnMetadata column : rowGroup.getColumns()) {
-
-      PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
-      OriginalType originalType = getOriginalType(parquetTableMetadata, column);
-      int precision = 0;
-      int scale = 0;
-      int definitionLevel = 1;
-      int repetitionLevel = 0;
-      MetadataVersion metadataVersion = new MetadataVersion(parquetTableMetadata.getMetadataVersion());
-      // only ColumnTypeMetadata_v3 and ColumnTypeMetadata_v4 store information about scale, precision, repetition level and definition level
-      if (parquetTableMetadata.hasColumnMetadata() && (metadataVersion.compareTo(new MetadataVersion(3, 0)) >= 0)) {
-        scale = parquetTableMetadata.getScale(column.getName());
-        precision = parquetTableMetadata.getPrecision(column.getName());
-        repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
-        definitionLevel = parquetTableMetadata.getDefinitionLevel(column.getName());
-      }
-      TypeProtos.DataMode mode;
-      if (repetitionLevel >= 1) {
-        mode = TypeProtos.DataMode.REPEATED;
-      } else if (repetitionLevel == 0 && definitionLevel == 0) {
-        mode = TypeProtos.DataMode.REQUIRED;
-      } else {
-        mode = TypeProtos.DataMode.OPTIONAL;
-      }
-      TypeProtos.MajorType columnType =
-          TypeProtos.MajorType.newBuilder(ParquetReaderUtility.getType(primitiveType, originalType, precision, scale))
-              .setMode(mode)
-              .build();
-
-      SchemaPath columnPath = SchemaPath.getCompoundPath(column.getName());
-      TypeProtos.MajorType majorType = columns.get(columnPath);
-      if (majorType == null) {
-        columns.put(columnPath, columnType);
-      } else {
-        TypeProtos.MinorType leastRestrictiveType = TypeCastRules.getLeastRestrictiveType(Arrays.asList(majorType.getMinorType(), columnType.getMinorType()));
-        if (leastRestrictiveType != majorType.getMinorType()) {
-          columns.put(columnPath, columnType);
-        }
-      }
-    }
-    return columns;
+    return getFields(parquetTableMetadata, rowGroup.getColumns());
   }
 
   /**
@@ -577,4 +553,49 @@ public class ParquetTableMetadataUtils {
     return columns;
   }
 
+  private static Map<SchemaPath, TypeProtos.MajorType> getFields(
+          MetadataBase.ParquetTableMetadataBase parquetTableMetadata, List<? extends MetadataBase.ColumnMetadata> columnsMetadata) {
+    Map<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
+    for (MetadataBase.ColumnMetadata column : columnsMetadata) {
+
+      PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
+      OriginalType originalType = getOriginalType(parquetTableMetadata, column);
+      int precision = 0;
+      int scale = 0;
+      int definitionLevel = 1;
+      int repetitionLevel = 0;
+      MetadataVersion metadataVersion = new MetadataVersion(parquetTableMetadata.getMetadataVersion());
+      // only ColumnTypeMetadata_v3 and ColumnTypeMetadata_v4 store information about scale, precision, repetition level and definition level
+      if (parquetTableMetadata.hasColumnMetadata() && (metadataVersion.compareTo(new MetadataVersion(3, 0)) >= 0)) {
+        scale = parquetTableMetadata.getScale(column.getName());
+        precision = parquetTableMetadata.getPrecision(column.getName());
+        repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
+        definitionLevel = parquetTableMetadata.getDefinitionLevel(column.getName());
+      }
+      TypeProtos.DataMode mode;
+      if (repetitionLevel >= 1) {
+        mode = TypeProtos.DataMode.REPEATED;
+      } else if (repetitionLevel == 0 && definitionLevel == 0) {
+        mode = TypeProtos.DataMode.REQUIRED;
+      } else {
+        mode = TypeProtos.DataMode.OPTIONAL;
+      }
+      TypeProtos.MajorType columnType =
+        TypeProtos.MajorType.newBuilder(ParquetReaderUtility.getType(primitiveType, originalType, precision, scale))
+          .setMode(mode)
+          .build();
+
+      SchemaPath columnPath = SchemaPath.getCompoundPath(column.getName());
+      TypeProtos.MajorType majorType = columns.get(columnPath);
+      if (majorType == null) {
+        columns.put(columnPath, columnType);
+      } else {
+        TypeProtos.MinorType leastRestrictiveType = TypeCastRules.getLeastRestrictiveType(Arrays.asList(majorType.getMinorType(), columnType.getMinorType()));
+        if (leastRestrictiveType != majorType.getMinorType()) {
+          columns.put(columnPath, columnType);
+        }
+      }
+    }
+    return columns;
+  }
 }

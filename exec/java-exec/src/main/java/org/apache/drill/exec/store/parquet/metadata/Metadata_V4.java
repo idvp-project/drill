@@ -30,9 +30,11 @@ import org.apache.drill.common.expression.SchemaPath;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ColumnMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetFileMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetTableMetadataBase;
+import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.FooterMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.RowGroupMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ColumnTypeMetadata;
-import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Constants.V4;
+import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Constants.V4_1;
+
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -197,20 +199,23 @@ public class Metadata_V4 {
     public Long length;
     @JsonProperty
     public List<RowGroupMetadata_v4> rowGroups;
+    @JsonProperty
+    public FooterMetadata_v4 footer;
 
     public ParquetFileMetadata_v4() {
 
     }
 
-    public ParquetFileMetadata_v4(Path path, Long length, List<RowGroupMetadata_v4> rowGroups) {
+    public ParquetFileMetadata_v4(Path path, Long length, List<RowGroupMetadata_v4> rowGroups, FooterMetadata_v4 footer) {
       this.path = path;
       this.length = length;
       this.rowGroups = rowGroups;
+      this.footer = footer;
     }
 
     @Override
     public String toString() {
-      return String.format("path: %s rowGroups: %s", path, rowGroups);
+      return String.format("path: %s rowGroups: %s footer: %s", path, rowGroups, footer);
     }
 
     @JsonIgnore
@@ -230,8 +235,30 @@ public class Metadata_V4 {
     public List<? extends RowGroupMetadata> getRowGroups() {
       return rowGroups;
     }
+
+    @JsonIgnore
+    @Override
+    public FooterMetadata getFooter() {
+      return footer;
+    }
   }
 
+  public static class FooterMetadata_v4 extends FooterMetadata {
+    @JsonProperty
+    public List<ColumnMetadata_v4> columns;
+
+    public FooterMetadata_v4() {
+    }
+
+    public FooterMetadata_v4(List<ColumnMetadata_v4> columns) {
+      this.columns = columns;
+    }
+
+    @Override
+    public List<? extends ColumnMetadata> getColumns() {
+      return columns;
+    }
+  }
 
   /**
    * A struct that contains the metadata for a parquet row group
@@ -411,7 +438,7 @@ public class Metadata_V4 {
     }
   }
 
-  @JsonTypeName(V4)
+  @JsonTypeName(V4_1)
   public static class MetadataSummary {
 
     @JsonProperty(value = "metadata_version")

@@ -34,6 +34,7 @@ import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Const
 import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Constants.V3_2;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Constants.V3_3;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Constants.V4;
+import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Constants.V4_1;
 
 public class MetadataBase {
 
@@ -56,7 +57,7 @@ public class MetadataBase {
       @JsonSubTypes.Type(value = Metadata_V3.ParquetTableMetadata_v3.class, name = V3_2),
       @JsonSubTypes.Type(value = Metadata_V3.ParquetTableMetadata_v3.class, name = V3_3),
       @JsonSubTypes.Type(value = Metadata_V4.ParquetTableMetadata_v4.class, name = V4),
-
+      @JsonSubTypes.Type(value = Metadata_V4.ParquetTableMetadata_v4.class, name = V4_1),
   })
   public static abstract class ParquetTableMetadataBase {
 
@@ -98,6 +99,8 @@ public class MetadataBase {
     @JsonIgnore public abstract Long getLength();
 
     @JsonIgnore public abstract List<? extends RowGroupMetadata> getRowGroups();
+
+    @JsonIgnore public abstract FooterMetadata getFooter();
   }
 
 
@@ -110,6 +113,10 @@ public class MetadataBase {
 
     @JsonIgnore public abstract Map<String, Float> getHostAffinity();
 
+    @JsonIgnore public abstract List<? extends ColumnMetadata> getColumns();
+  }
+
+  public static abstract class FooterMetadata {
     @JsonIgnore public abstract List<? extends ColumnMetadata> getColumns();
   }
 

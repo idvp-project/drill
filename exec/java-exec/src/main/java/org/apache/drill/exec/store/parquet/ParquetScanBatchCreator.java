@@ -17,6 +17,12 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.CommonParquetRecordReader;
+import org.apache.drill.exec.store.parquet.columnreaders.EmptyParquetReader;
+import org.apache.drill.exec.store.parquet.metadata.Metadata;
+import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
+import org.apache.drill.exec.store.parquet.metadata.Metadata_V4;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ExecConstants;
@@ -27,13 +33,19 @@ import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class ParquetScanBatchCreator extends AbstractParquetScanBatchCreator implements BatchCreator<ParquetRowGroupScan> {
+
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetScanBatchCreator.class);
 
   @Override
   public ScanBatch getBatch(ExecutorFragmentContext context, ParquetRowGroupScan rowGroupScan, List<RecordBatch> children) throws ExecutionSetupException {
@@ -45,6 +57,41 @@ public class ParquetScanBatchCreator extends AbstractParquetScanBatchCreator imp
   @Override
   protected AbstractDrillFileSystemManager getDrillFileSystemCreator(OperatorContext operatorContext, OptionManager optionManager) {
     return new ParquetDrillFileSystemManager(operatorContext, optionManager.getOption(ExecConstants.PARQUET_PAGEREADER_ASYNC).bool_val);
+  }
+
+  @Override
+  protected Map<String, String> createEmptyReaderAndImplicitColumns(AbstractDrillFileSystemManager fsManager,
+                                                                    ExecutorFragmentContext context,
+                                                                    AbstractParquetRowGroupScan rowGroupScan,
+                                                                    ColumnExplorer columnExplorer,
+                                                                    List<CommonParquetRecordReader> readers,
+                                                                    List<Map<String, String>> implicitColumns) throws ExecutionSetupException, InterruptedException, IOException {
+    ParquetRowGroupScan scan = (ParquetRowGroupScan) rowGroupScan;
+    Stopwatch timer = logger.isTraceEnabled() ? Stopwatch.createUnstarted() : null;
+
+    try (DrillFileSystem fs = fsManager.get(scan.getStorageEngine().getFsConf(), scan.getSelectionRoot())) {
+      Metadata_V4.ParquetTableMetadata_v4 metadata = Metadata.getParquetTableMetadata(fs, scan.getSelectionRoot().toString(), scan.getReaderConfig());
+      for (MetadataBase.ParquetFileMetadata file : metadata.getFiles()) {
+
+        if (timer != null) {
+          timer.start();
+        }
+
+        ParquetMetadata footer = readFooter(fs.getConf(), file.getPath(), scan.getReaderConfig());
+        if (timer != null) {
+          long timeToRead = timer.elapsed(TimeUnit.MICROSECONDS);
+          timer.stop().reset();
+          logger.trace("ParquetTrace,Read Footer,{},{},{},{},{},{},{}", "", scan.getSelectionRoot(), "", 0, 0, 0, timeToRead);
+        }
+
+        readers.add(new EmptyParquetReader(footer, context));
+      }
+
+      List<String> partitionValues = ColumnExplorer.listPartitionValues(scan.getSelectionRoot(), scan.getSelectionRoot(), false);
+      Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(scan.getSelectionRoot(), partitionValues, rowGroupScan.supportsFileImplicitColumns());
+      implicitColumns.add(implicitValues);
+      return implicitValues;
+    }
   }
 
 

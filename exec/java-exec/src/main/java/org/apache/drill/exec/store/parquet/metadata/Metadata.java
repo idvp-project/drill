@@ -487,20 +487,22 @@ public class Metadata {
       int repetitionLevel = schema.getMaxRepetitionLevel(path);
       int definitionLevel = schema.getMaxDefinitionLevel(path);
 
-      return new ColTypeInfo(type.getOriginalType(), precision, scale, repetitionLevel, definitionLevel);
+      return new ColTypeInfo(primitiveType, type.getOriginalType(), precision, scale, repetitionLevel, definitionLevel);
     }
     Type t = ((GroupType) type).getType(path[depth]);
     return getColTypeInfo(schema, t, path, depth + 1);
   }
 
   private static class ColTypeInfo {
+    public PrimitiveType primitiveType;
     public OriginalType originalType;
     public int precision;
     public int scale;
     public int repetitionLevel;
     public int definitionLevel;
 
-    ColTypeInfo(OriginalType originalType, int precision, int scale, int repetitionLevel, int definitionLevel) {
+    ColTypeInfo(PrimitiveType primitiveType, OriginalType originalType, int precision, int scale, int repetitionLevel, int definitionLevel) {
+      this.primitiveType = primitiveType;
       this.originalType = originalType;
       this.precision = precision;
       this.scale = scale;
@@ -557,10 +559,18 @@ public class Metadata {
     }
     MessageType schema = metadata.getFileMetaData().getSchema();
 
+    List<ColumnMetadata_v4> footerColumnList = Lists.newArrayList();
     Map<SchemaPath, ColTypeInfo> colTypeInfoMap = new HashMap<>();
-    schema.getPaths();
     for (String[] path : schema.getPaths()) {
-      colTypeInfoMap.put(SchemaPath.getCompoundPath(path), getColTypeInfo(schema, schema, path, 0));
+      SchemaPath columnSchemaName = SchemaPath.getCompoundPath(path);
+      ColTypeInfo colTypeInfo = getColTypeInfo(schema, schema, path, 0);
+      colTypeInfoMap.put(columnSchemaName, colTypeInfo);
+
+      boolean thisColumnIsInteresting = allColumnsInteresting || columnSet == null || columnSet.contains(columnSchemaName.getRootSegmentPath());
+      if ( skipNonInteresting && ! thisColumnIsInteresting ) { continue; }
+
+      ColumnMetadata_v4 columnMetadata = new ColumnMetadata_v4(path, colTypeInfo.primitiveType.getPrimitiveTypeName(), null, null, null);
+      footerColumnList.add(columnMetadata);
     }
 
     List<RowGroupMetadata_v4> rowGroupMetadataList = Lists.newArrayList();
@@ -636,9 +646,11 @@ public class Metadata {
 
       rowGroupMetadataList.add(rowGroupMeta);
     }
+
+
     Path path = Path.getPathWithoutSchemeAndAuthority(file.getPath());
 
-    ParquetFileMetadata_v4 parquetFileMetadata_v4 = new ParquetFileMetadata_v4(path, file.getLen(), rowGroupMetadataList);
+    ParquetFileMetadata_v4 parquetFileMetadata_v4 = new ParquetFileMetadata_v4(path, file.getLen(), rowGroupMetadataList, new Metadata_V4.FooterMetadata_v4(footerColumnList));
     ParquetFileAndRowCountMetadata parquetFileAndRowCountMetadata = new ParquetFileAndRowCountMetadata(parquetFileMetadata_v4, totalNullCountMap, totalRowCount);
     return parquetFileAndRowCountMetadata;
   }

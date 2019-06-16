@@ -41,6 +41,7 @@ import static org.apache.drill.exec.store.parquet.metadata.MetadataVersion.Const
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ColumnMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetFileMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetTableMetadataBase;
+import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.FooterMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.RowGroupMetadata;
 
 public class Metadata_V3 {
@@ -232,6 +233,11 @@ public class Metadata_V3 {
     @JsonIgnore
     @Override public List<? extends RowGroupMetadata> getRowGroups() {
       return rowGroups;
+    }
+
+    @JsonIgnore
+    @Override public FooterMetadata getFooter() {
+      return null;
     }
   }
 
