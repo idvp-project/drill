@@ -17,9 +17,6 @@
  */
 package org.apache.drill.exec.store.hive;
 
-import org.apache.drill.exec.store.ColumnExplorer;
-import org.apache.drill.exec.store.CommonParquetRecordReader;
-import org.apache.drill.exec.store.parquet.AbstractParquetRowGroupScan;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
@@ -50,19 +47,6 @@ public class HiveDrillNativeParquetScanBatchCreator extends AbstractParquetScanB
   @Override
   protected AbstractDrillFileSystemManager getDrillFileSystemCreator(OperatorContext operatorContext, OptionManager optionManager) {
     return new HiveDrillNativeParquetDrillFileSystemManager(operatorContext);
-  }
-
-  @Override
-  protected Map<String, String> createEmptyReaderAndImplicitColumns(AbstractDrillFileSystemManager fsManager,
-                                                                    ExecutorFragmentContext context,
-                                                                    AbstractParquetRowGroupScan rowGroupScan,
-                                                                    ColumnExplorer columnExplorer,
-                                                                    List<CommonParquetRecordReader> readers,
-                                                                    List<Map<String, String>> implicitColumns) throws ExecutionSetupException {
-
-    // Since where is no way to read empty parquet from hive (https://community.cloudera.com/t5/Batch-SQL-Apache-Hive/Hive-Error-when-reading-empty-parquet-files/td-p/58671),
-    // throw an exception.
-    throw new ExecutionSetupException("HiveDrillNativeParquetScan does not support reading of empty parquet files");
   }
 
   /**

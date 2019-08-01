@@ -21,10 +21,7 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
-import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.CommonParquetRecordReader;
-import org.apache.drill.exec.store.parquet.ParquetRowGroupScan;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.util.ArrayList;

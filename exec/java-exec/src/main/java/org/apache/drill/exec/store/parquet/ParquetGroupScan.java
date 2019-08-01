@@ -21,7 +21,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
+import org.apache.drill.exec.metastore.ParquetMetadataProvider;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
@@ -42,7 +44,6 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.util.ImpersonationUtil;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
@@ -206,11 +207,12 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   // getters for serialization / deserialization end
 
   @Override
-  public ParquetRowGroupScan getSpecificScan(int minorFragmentId) {
+  public AbstractParquetRowGroupScan getSpecificScan(int minorFragmentId) {
     if (mappings.isEmpty()) {
+      Set<Path> fileSet = ((ParquetMetadataProvider) metadataProvider).getFileSet();
       // Empty parquet file
-      return new ParquetRowGroupScan(getUserName(), formatPlugin, ImmutableList.of(), columns, readerConfig, selectionRoot, filter,
-              tableMetadata == null ? null : tableMetadata.getSchema());
+      return new EmptyParquetRowGroupScan(getUserName(), formatPlugin, fileSet, columns, readerConfig, selectionRoot, filter,
+                    tableMetadata == null ? null : tableMetadata.getSchema());
     }
 
     return new ParquetRowGroupScan(getUserName(), formatPlugin, getReadEntries(minorFragmentId), columns, readerConfig, selectionRoot, filter,

@@ -18,6 +18,10 @@
 package org.apache.drill.exec.physical.impl.writer;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchemaBuilder;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.categories.ParquetTest;
 import org.apache.drill.categories.UnlikelyTest;
@@ -44,7 +48,41 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
 
     test("CREATE TABLE dfs.tmp.%s AS SELECT * FROM cp.`employee.json` WHERE 1=0", outputFileName);
     Assert.assertTrue(outputFile.exists());
-    test("select * from dfs.tmp.%s", outputFileName);
+  }
+
+  @Test
+  public void testEmptyFileSchema() throws Exception {
+    final String outputFileName = "testparquetwriteremptyfiles_testemptyfileschema";
+
+    test("CREATE TABLE dfs.tmp.%s AS SELECT * FROM cp.`employee.json` WHERE 1=0", outputFileName);
+
+    // end_date column is null, so it missing in result schema.
+    SchemaBuilder schemaBuilder = new SchemaBuilder()
+            .addNullable("employee_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("full_name", TypeProtos.MinorType.VARCHAR)
+            .addNullable("first_name", TypeProtos.MinorType.VARCHAR)
+            .addNullable("last_name", TypeProtos.MinorType.VARCHAR)
+            .addNullable("position_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("position_title", TypeProtos.MinorType.VARCHAR)
+            .addNullable("store_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("department_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("birth_date", TypeProtos.MinorType.VARCHAR)
+            .addNullable("hire_date", TypeProtos.MinorType.VARCHAR)
+            .addNullable("salary", TypeProtos.MinorType.FLOAT8)
+            .addNullable("supervisor_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("education_level", TypeProtos.MinorType.VARCHAR)
+            .addNullable("marital_status", TypeProtos.MinorType.VARCHAR)
+            .addNullable("gender", TypeProtos.MinorType.VARCHAR)
+            .addNullable("management_role", TypeProtos.MinorType.VARCHAR);
+    BatchSchema expectedSchema = new BatchSchemaBuilder()
+            .withSchemaBuilder(schemaBuilder)
+            .build();
+
+    testBuilder()
+            .unOrdered()
+            .sqlQuery("select * from dfs.tmp.%s", outputFileName)
+            .schemaBaseLine(expectedSchema)
+            .go();
   }
 
   @Test
@@ -71,7 +109,8 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
 
   @Test // see DRILL-2408
   public void testWriteEmptyFileAfterFlush() throws Exception {
-    final String outputFile = "testparquetwriteremptyfiles_test_write_empty_file_after_flush";
+    final String outputFileName = "testparquetwriteremptyfiles_test_write_empty_file_after_flush";
+    final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
 
     try {
       // this specific value will force a flush just after the final row is written
@@ -79,12 +118,15 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
       test("ALTER SESSION SET `store.parquet.block-size` = 19926");
 
       final String query = "SELECT * FROM cp.`employee.json` LIMIT 100";
-      test("CREATE TABLE dfs.tmp.%s AS %s", outputFile, query);
+      test("CREATE TABLE dfs.tmp.%s AS %s", outputFileName, query);
+
+      // Make sure that only 1 parquet file was created
+      Assert.assertEquals(1, outputFile.list((dir, name) -> name.endsWith("parquet")).length);
 
       // this query will fail if an "empty" file was created
       testBuilder()
         .unOrdered()
-        .sqlQuery("SELECT * FROM dfs.tmp.%s", outputFile)
+        .sqlQuery("SELECT * FROM dfs.tmp.%s", outputFileName)
         .sqlBaselineQuery(query)
         .go();
     } finally {
