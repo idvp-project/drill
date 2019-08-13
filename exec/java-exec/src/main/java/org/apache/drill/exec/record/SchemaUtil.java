@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -32,6 +34,7 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.resolver.TypeCastRules;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
@@ -44,6 +47,80 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
  * Utility class for dealing with changing schemas
  */
 public class SchemaUtil {
+
+  /**
+   * Returns the combination of schemas. The merged schema will include the union all columns. If there is a type conflict
+   * between columns with the same schemapath but different types, the output type is chosen based on DRILL's implicit casting rules.
+   * @param schemas
+   * @return
+   */
+  public static BatchSchema combineSchemas(final BatchSchema... schemas) {
+    Map<SchemaPath, MaterializedField> fieldsMap = Maps.newLinkedHashMap();
+
+    for (BatchSchema schema : schemas) {
+      for (MaterializedField field : schema) {
+        SchemaPath path = SchemaPath.getSimplePath(field.getName());
+        MaterializedField inferredField = fieldsMap.get(path);
+        if (inferredField == null) {
+          fieldsMap.put(path, field);
+        } else {
+          inferredField = inferOutputField(inferredField, field);
+          if (inferredField == null) {
+            throw new DrillRuntimeException("Type mismatch between " + fieldsMap.get(path).getType().getMinorType().toString() +
+              " on the left side and " + field.getType().getMinorType().toString() +
+              " on the right side");
+          }
+          fieldsMap.put(path, inferredField);
+        }
+      }
+    }
+
+    SchemaBuilder schemaBuilder = new SchemaBuilder();
+    BatchSchema s = schemaBuilder.addFields(fieldsMap.values()).setSelectionVectorMode(schemas[0].getSelectionVectorMode()).build();
+    return s;
+  }
+
+  /**
+   * The output field name always follow the left field,
+   * where the output type is chosen based on DRILL's implicit casting rules
+   */
+  public static MaterializedField inferOutputField(final MaterializedField leftField,
+                                                   final MaterializedField rightField) {
+    if (leftField.hasSameTypeAndMode(rightField)) {
+      TypeProtos.MajorType.Builder builder = TypeProtos.MajorType.newBuilder().setMinorType(leftField.getType().getMinorType()).setMode(leftField.getDataMode());
+      builder = Types.calculateTypePrecisionAndScale(leftField.getType(), rightField.getType(), builder);
+      return MaterializedField.create(leftField.getName(), builder.build());
+    } else if (Types.isUntypedNull(rightField.getType())) {
+      return leftField;
+    } else if (Types.isUntypedNull(leftField.getType())) {
+      return MaterializedField.create(leftField.getName(), rightField.getType());
+    } else {
+      // If the output type is not the same,
+      // cast the column of one of the table to a data type which is the Least Restrictive
+      TypeProtos.MajorType.Builder builder = TypeProtos.MajorType.newBuilder();
+      if (leftField.getType().getMinorType() == rightField.getType().getMinorType()) {
+        builder.setMinorType(leftField.getType().getMinorType());
+        builder = Types.calculateTypePrecisionAndScale(leftField.getType(), rightField.getType(), builder);
+      } else {
+        List<TypeProtos.MinorType> types = Lists.newLinkedList();
+        types.add(leftField.getType().getMinorType());
+        types.add(rightField.getType().getMinorType());
+        TypeProtos.MinorType outputMinorType = TypeCastRules.getLeastRestrictiveType(types);
+        if (outputMinorType == null) {
+          return null;
+        }
+        builder.setMinorType(outputMinorType);
+      }
+
+      // The output data mode should be as flexible as the more flexible one from the two input tables
+      List<TypeProtos.DataMode> dataModes = Lists.newLinkedList();
+      dataModes.add(leftField.getType().getMode());
+      dataModes.add(rightField.getType().getMode());
+      builder.setMode(TypeCastRules.getLeastRestrictiveDataMode(dataModes));
+
+      return MaterializedField.create(leftField.getName(), builder.build());
+    }
+  }
 
   /**
    * Returns the merger of schemas. The merged schema will include the union all columns. If there is a type conflict

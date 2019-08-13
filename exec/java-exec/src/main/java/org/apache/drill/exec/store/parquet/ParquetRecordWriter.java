@@ -37,13 +37,14 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.store.StorageStrategy;
-import org.apache.drill.exec.planner.physical.WriterPrel;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.SchemaUtil;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.store.StorageStrategy;
+import org.apache.drill.exec.planner.physical.WriterPrel;
 import org.apache.drill.exec.store.EventBasedRecordWriter;
 import org.apache.drill.exec.store.EventBasedRecordWriter.FieldConverter;
 import org.apache.drill.exec.store.ParquetOutputRecordWriter;
@@ -122,7 +123,8 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   private PrimitiveTypeName logicalTypeForDecimals;
   private boolean usePrimitiveTypesForDecimals;
 
-  private boolean empty = true;
+  private boolean emptyWriter = true;
+  private BatchSchema combinedSchema = null;
 
   public ParquetRecordWriter(FragmentContext context, ParquetWriter writer) throws OutOfMemoryException {
     this.oContext = context.newOperatorContext(writer);
@@ -210,7 +212,8 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
         flush(false);
       }
       this.batchSchema = batch.getSchema();
-      newSchema();
+      newSchemaFor(this.batchSchema);
+      updateCombinedSchema();
     }
     TypedFieldId fieldId = batch.getValueVectorId(SchemaPath.getSimplePath(WriterPrel.PARTITION_COMPARATOR_FIELD));
     if (fieldId != null) {
@@ -219,7 +222,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     }
   }
 
-  private void newSchema() throws IOException {
+  private void newSchemaFor(BatchSchema batchSchema) throws IOException {
     List<Type> types = Lists.newArrayList();
     for (MaterializedField field : batchSchema) {
       if (field.getName().equalsIgnoreCase(WriterPrel.PARTITION_COMPARATOR_FIELD)) {
@@ -257,6 +260,17 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     MessageColumnIO columnIO = new ColumnIOFactory(false).getColumnIO(this.schema);
     consumer = columnIO.getRecordWriter(store);
     setUp(schema, consumer);
+  }
+
+  private void updateCombinedSchema() {
+    if (!this.emptyWriter) {
+      // Combined schema requires for empty parquet files only.
+      this.combinedSchema = null;
+    } else if (this.combinedSchema == null) {
+      this.combinedSchema = this.batchSchema;
+    } else {
+      this.combinedSchema = SchemaUtil.combineSchemas(this.combinedSchema, this.batchSchema);
+    }
   }
 
   protected PrimitiveType getPrimitiveType(MaterializedField field) {
@@ -313,7 +327,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
       boolean newPartition = newPartition(index);
       if (newPartition) {
         flush(false);
-        newSchema();
+        newSchemaFor(batchSchema);
       }
     } catch (Exception e) {
       throw new DrillRuntimeException(e);
@@ -324,12 +338,13 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     try {
       if (recordCount > 0) {
         flushParquetFileWriter();
-      } else if (cleanUp && empty && schema != null && schema.getFieldCount() > 0) {
+      } else if (cleanUp && emptyWriter && combinedSchema != null && combinedSchema.getFieldCount() > 0) {
         // Write empty parquet if:
         // 1) This is a cleanup - no any additional records can be written
         // 2) No file was written until this moment
         // 3) Schema is set
         // 4) Schema is not empty
+        newSchemaFor(combinedSchema);
         createParquetFileWriter();
         flushParquetFileWriter();
       }
@@ -349,7 +364,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
       if (memSize > blockSize) {
         logger.debug("Reached block size " + blockSize);
         flush(false);
-        newSchema();
+        newSchemaFor(batchSchema);
         recordCountForNextMemCheck = min(max(MINIMUM_RECORD_COUNT_FOR_CHECK, recordCount / 2), MAXIMUM_RECORD_COUNT_FOR_CHECK);
       } else {
         float recordSize = (float) memSize / recordCount;
@@ -433,6 +448,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   @Override
   public void endRecord() throws IOException {
     consumer.endMessage();
+    emptyWriter = false;
 
     // we wait until there is at least one record before creating the parquet file
     if (parquetFileWriter == null) {
@@ -507,7 +523,6 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     store.flush();
     pageStore.flushToFileWriter(parquetFileWriter);
     recordCount = 0;
-    empty = false;
     parquetFileWriter.endBlock();
 
     // we are writing one single block per file

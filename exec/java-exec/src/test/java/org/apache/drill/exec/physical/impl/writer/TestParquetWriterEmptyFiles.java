@@ -66,11 +66,37 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
     final String outputFileName = "testparquetwriteremptyfiles_testwriteemptyschemachange";
     final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
 
+    test("CREATE TABLE dfs.tmp.%s AS select * from dfs.`schemachange/multi/*.json` WHERE id = 100500", outputFileName);
+
+    // Only the last scan scheme is written
+    SchemaBuilder schemaBuilder = new SchemaBuilder()
+      .addNullable("id", TypeProtos.MinorType.BIGINT)
+      .addNullable("b", TypeProtos.MinorType.BIT);
+    BatchSchema expectedSchema = new BatchSchemaBuilder()
+      .withSchemaBuilder(schemaBuilder)
+      .build();
+
+    testBuilder()
+      .unOrdered()
+      .sqlQuery("select * from dfs.tmp.%s", outputFileName)
+      .schemaBaseLine(expectedSchema)
+      .go();
+
+    // Make sure that only 1 parquet file was created
+    Assert.assertEquals(1, outputFile.list((dir, name) -> name.endsWith("parquet")).length);
+  }
+
+  @Test
+  public void testWriteEmptySchemaChangeWithConstantFilter() throws Exception {
+    final String outputFileName = "testparquetwriteremptyfiles_testwriteemptyschemachange";
+    final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
+
     test("CREATE TABLE dfs.tmp.%s AS select * from dfs.`schemachange/multi/*.json` WHERE 1=0", outputFileName);
 
     // Only the last scan scheme is written
     SchemaBuilder schemaBuilder = new SchemaBuilder()
       .addNullable("id", TypeProtos.MinorType.BIGINT)
+      .addNullable("a", TypeProtos.MinorType.BIGINT)
       .addNullable("b", TypeProtos.MinorType.BIT);
     BatchSchema expectedSchema = new BatchSchemaBuilder()
       .withSchemaBuilder(schemaBuilder)

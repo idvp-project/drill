@@ -17,6 +17,17 @@
  */
 package org.apache.drill.exec.physical.impl.union;
 
+import org.apache.drill.exec.record.AbstractBinaryRecordBatch;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.JoinBatchMemoryManager;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.RecordBatchMemoryManager;
+import org.apache.drill.exec.record.SchemaUtil;
+import org.apache.drill.exec.record.TransferPair;
+import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
+import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.calcite.util.Pair;
@@ -26,7 +37,6 @@ import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
@@ -37,17 +47,6 @@ import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.ValueVectorWriteExpression;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.UnionAll;
-import org.apache.drill.exec.record.AbstractBinaryRecordBatch;
-import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.JoinBatchMemoryManager;
-import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.record.RecordBatchMemoryManager;
-import org.apache.drill.exec.record.TransferPair;
-import org.apache.drill.exec.record.TypedFieldId;
-import org.apache.drill.exec.record.VectorAccessibleUtilities;
-import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.resolver.TypeCastRules;
 import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.exec.util.record.RecordBatchStats;
 import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
@@ -267,42 +266,14 @@ public class UnionAllRecordBatch extends AbstractBinaryRecordBatch<UnionAll> {
       MaterializedField leftField  = leftIter.next();
       MaterializedField rightField = rightIter.next();
 
-      if (leftField.hasSameTypeAndMode(rightField)) {
-        TypeProtos.MajorType.Builder builder = TypeProtos.MajorType.newBuilder().setMinorType(leftField.getType().getMinorType()).setMode(leftField.getDataMode());
-        builder = Types.calculateTypePrecisionAndScale(leftField.getType(), rightField.getType(), builder);
-        container.addOrGet(MaterializedField.create(leftField.getName(), builder.build()), callBack);
-      } else if (Types.isUntypedNull(rightField.getType())) {
-        container.addOrGet(leftField, callBack);
-      } else if (Types.isUntypedNull(leftField.getType())) {
-        container.addOrGet(MaterializedField.create(leftField.getName(), rightField.getType()), callBack);
-      } else {
-        // If the output type is not the same,
-        // cast the column of one of the table to a data type which is the Least Restrictive
-        TypeProtos.MajorType.Builder builder = TypeProtos.MajorType.newBuilder();
-        if (leftField.getType().getMinorType() == rightField.getType().getMinorType()) {
-          builder.setMinorType(leftField.getType().getMinorType());
-          builder = Types.calculateTypePrecisionAndScale(leftField.getType(), rightField.getType(), builder);
-        } else {
-          List<TypeProtos.MinorType> types = Lists.newLinkedList();
-          types.add(leftField.getType().getMinorType());
-          types.add(rightField.getType().getMinorType());
-          TypeProtos.MinorType outputMinorType = TypeCastRules.getLeastRestrictiveType(types);
-          if (outputMinorType == null) {
-            throw new DrillRuntimeException("Type mismatch between " + leftField.getType().getMinorType().toString() +
-                " on the left side and " + rightField.getType().getMinorType().toString() +
-                " on the right side in column " + index + " of UNION ALL");
-          }
-          builder.setMinorType(outputMinorType);
-        }
-
-        // The output data mode should be as flexible as the more flexible one from the two input tables
-        List<TypeProtos.DataMode> dataModes = Lists.newLinkedList();
-        dataModes.add(leftField.getType().getMode());
-        dataModes.add(rightField.getType().getMode());
-        builder.setMode(TypeCastRules.getLeastRestrictiveDataMode(dataModes));
-
-        container.addOrGet(MaterializedField.create(leftField.getName(), builder.build()), callBack);
+      MaterializedField inferredField = SchemaUtil.inferOutputField(leftField, rightField);
+      if (inferredField == null) {
+        throw new DrillRuntimeException("Type mismatch between " + leftField.getType().getMinorType().toString() +
+          " on the left side and " + rightField.getType().getMinorType().toString() +
+          " on the right side in column " + index + " of UNION ALL");
       }
+
+      container.addOrGet(inferredField, callBack);
       ++index;
     }
 
