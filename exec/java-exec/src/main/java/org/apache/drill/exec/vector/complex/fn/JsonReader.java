@@ -52,6 +52,7 @@ public class JsonReader extends BaseJsonProcessor {
   private final ListVectorOutput listOutput;
   private final boolean extended = true;
   private final boolean readNumbersAsDouble;
+  private final boolean counting;
 
   /**
    * Collection for tracking empty array writers during reading
@@ -75,7 +76,11 @@ public class JsonReader extends BaseJsonProcessor {
 
   private JsonReader(Builder builder) {
     super(builder.managedBuf, builder.enableNanInf, builder.enableEscapeAnyChar);
-    selection = FieldSelection.getFieldSelection(builder.columns);
+    if (builder.counting) {
+      selection = FieldSelection.INVALID_NODE;
+    } else {
+      selection = FieldSelection.getFieldSelection(builder.columns);
+    }
     workingBuffer = builder.workingBuffer;
     skipOuterList = builder.skipOuterList;
     allTextMode = builder.allTextMode;
@@ -84,6 +89,7 @@ public class JsonReader extends BaseJsonProcessor {
     listOutput = builder.listOutput;
     currentFieldName = builder.currentFieldName;
     readNumbersAsDouble = builder.readNumbersAsDouble;
+    counting = builder.counting;
   }
 
   public static class Builder {
@@ -98,6 +104,7 @@ public class JsonReader extends BaseJsonProcessor {
     private  boolean allTextMode;
     private  boolean enableNanInf;
     private  boolean enableEscapeAnyChar;
+    private  boolean counting;
 
 
     public Builder(DrillBuf managedBuf) {
@@ -143,17 +150,27 @@ public class JsonReader extends BaseJsonProcessor {
       return this;
     }
 
+    public Builder counting(boolean counting) {
+      this.counting = counting;
+      return this;
+    }
+
     public JsonReader build() {
-      if (columns == null) {
-        throw new IllegalStateException("You need to set SchemaPath columns in order to build JsonReader");
+      if (!counting) {
+        if (columns == null) {
+          throw new IllegalStateException("You need to set SchemaPath columns in order to build JsonReader");
+        }
+        assert Preconditions.checkNotNull(columns).size() > 0 : "JSON record reader requires at least one column";
       }
-      assert Preconditions.checkNotNull(columns).size() > 0 : "JSON record reader requires at least one column";
       return new JsonReader(this);
     }
   }
 
   @Override
   public void ensureAtLeastOneField(ComplexWriter writer) {
+    if (counting) {
+      return;
+    }
     JsonReaderUtils.ensureAtLeastOneField(writer, columns, allTextMode, emptyArrayWriters);
   }
 
@@ -242,7 +259,11 @@ public class JsonReader extends BaseJsonProcessor {
 
     switch (t) {
     case START_OBJECT:
-      writeDataSwitch(writer.rootAsMap());
+      if (counting) {
+        writeCount(writer);
+      } else {
+        writeDataSwitch(writer.rootAsMap());
+      }
       break;
     case START_ARRAY:
       if (inOuterList) {
@@ -255,7 +276,11 @@ public class JsonReader extends BaseJsonProcessor {
         t = parser.nextToken();
         if (t == JsonToken.START_OBJECT) {
           inOuterList = true;
-          writeDataSwitch(writer.rootAsMap());
+          if (counting) {
+            writeCount(writer);
+          } else {
+            writeDataSwitch(writer.rootAsMap());
+          }
         } else {
           String message = "The top level of your document must either be a single array of maps or a set "
               + "of white space delimited maps.";
@@ -263,7 +288,11 @@ public class JsonReader extends BaseJsonProcessor {
         }
 
       } else {
-        writeDataSwitch(writer.rootAsList());
+        if (counting) {
+          writeCount(writer);
+        } else {
+          writeDataSwitch(writer.rootAsList());
+        }
       }
       break;
     case END_ARRAY:
@@ -288,6 +317,11 @@ public class JsonReader extends BaseJsonProcessor {
 
     return ReadState.WRITE_SUCCEED;
 
+  }
+
+  private void writeCount(ComplexWriter w) throws IOException {
+    w.rootAsMap().bit("count").writeBit(1);
+    parser.skipChildren();
   }
 
   private void writeDataSwitch(MapWriter w) throws IOException {

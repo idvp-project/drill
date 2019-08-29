@@ -32,7 +32,6 @@ import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.easy.json.JsonProcessor.ReadState;
-import org.apache.drill.exec.store.easy.json.reader.CountingJsonReader;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.complex.fn.JsonReader;
 import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
@@ -142,18 +141,15 @@ public class JSONRecordReader extends AbstractRecordReader {
       }
 
       this.writer = new VectorContainerWriter(output, unionEnabled);
-      if (isSkipQuery()) {
-        this.jsonReader = new CountingJsonReader(fragmentContext.getManagedBuffer(), enableNanInf, enableEscapeAnyChar);
-      } else {
-        this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
-            .schemaPathColumns(ImmutableList.copyOf(getColumns()))
-            .allTextMode(enableAllTextMode)
-            .skipOuterList(true)
-            .readNumbersAsDouble(readNumbersAsDouble)
-            .enableNanInf(enableNanInf)
-            .enableEscapeAnyChar(enableEscapeAnyChar)
-            .build();
-      }
+      this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
+          .schemaPathColumns(ImmutableList.copyOf(getColumns()))
+          .allTextMode(enableAllTextMode)
+          .skipOuterList(true)
+          .readNumbersAsDouble(readNumbersAsDouble)
+          .enableNanInf(enableNanInf)
+          .enableEscapeAnyChar(enableEscapeAnyChar)
+          .counting(isSkipQuery())
+          .build();
       setupParser();
     } catch (final Exception e){
       handleAndRaise("Failure reading JSON file", e);
