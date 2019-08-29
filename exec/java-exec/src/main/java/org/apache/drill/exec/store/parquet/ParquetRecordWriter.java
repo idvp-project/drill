@@ -122,6 +122,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   private PrimitiveTypeName logicalTypeForDecimals;
   private boolean usePrimitiveTypesForDecimals;
 
+  /** Is used to ensure that empty Parquet file will be written if no rows were provided. */
   private boolean empty = true;
 
   public ParquetRecordWriter(FragmentContext context, ParquetWriter writer) throws OutOfMemoryException {
@@ -320,7 +321,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     }
   }
 
-  private void flush(final boolean cleanUp) throws IOException {
+  private void flush(boolean cleanUp) throws IOException {
     try {
       if (recordCount > 0) {
         flushParquetFileWriter();
@@ -439,6 +440,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
       createParquetFileWriter();
     }
 
+    empty = false;
     recordCount++;
     checkBlockSizeReached();
   }
@@ -473,8 +475,6 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   }
 
   private void createParquetFileWriter() throws IOException {
-    assert parquetFileWriter == null;
-
     Path path = new Path(location, prefix + "_" + index + ".parquet");
     // to ensure that our writer was the first to create output file, we create empty file first and fail if file exists
     Path firstCreatedPath = storageStrategy.createFileAndApply(fs, path);
@@ -500,14 +500,11 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   }
 
   private void flushParquetFileWriter() throws IOException {
-    assert parquetFileWriter != null;
-
     parquetFileWriter.startBlock(recordCount);
     consumer.flush();
     store.flush();
     pageStore.flushToFileWriter(parquetFileWriter);
     recordCount = 0;
-    empty = false;
     parquetFileWriter.endBlock();
 
     // we are writing one single block per file

@@ -26,12 +26,16 @@ import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.categories.ParquetTest;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.exec.ExecConstants;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.io.File;
+import java.nio.file.Paths;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Category({ParquetTest.class, UnlikelyTest.class})
 public class TestParquetWriterEmptyFiles extends BaseTestQuery {
@@ -39,75 +43,107 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
   @BeforeClass
   public static void initFs() throws Exception {
     updateTestCluster(3, null);
+    dirTestWatcher.copyResourceToRoot(Paths.get("schemachange"));
+    dirTestWatcher.copyResourceToRoot(Paths.get("parquet", "empty"));
+    dirTestWatcher.copyResourceToRoot(Paths.get("parquet", "alltypes_required.parquet"));
   }
 
-  @Test // see DRILL-2408
+  @Test
   public void testWriteEmptyFile() throws Exception {
     final String outputFileName = "testparquetwriteremptyfiles_testwriteemptyfile";
     final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
 
     test("CREATE TABLE dfs.tmp.%s AS SELECT * FROM cp.`employee.json` WHERE 1=0", outputFileName);
-    Assert.assertTrue(outputFile.exists());
+    assertTrue(outputFile.exists());
   }
 
   @Test
-  public void testEmptyFileSchema() throws Exception {
-    final String outputFileName = "testparquetwriteremptyfiles_testemptyfileschema";
+  public void testWriteEmptyFileWithSchema() throws Exception {
+    final String outputFileName = "testparquetwriteremptyfiles_testwriteemptyfilewithschema";
 
-    test("CREATE TABLE dfs.tmp.%s AS SELECT * FROM cp.`employee.json` WHERE 1=0", outputFileName);
+    test("CREATE TABLE dfs.tmp.%s AS select * from dfs.`parquet/alltypes_required.parquet` where `col_int` = 0", outputFileName);
+
+    // Only the last scan scheme is written
+    SchemaBuilder schemaBuilder = new SchemaBuilder()
+      .add("col_int", TypeProtos.MinorType.INT)
+      .add("col_chr", TypeProtos.MinorType.VARCHAR)
+      .add("col_vrchr", TypeProtos.MinorType.VARCHAR)
+      .add("col_dt", TypeProtos.MinorType.DATE)
+      .add("col_tim", TypeProtos.MinorType.TIME)
+      .add("col_tmstmp", TypeProtos.MinorType.TIMESTAMP)
+      .add("col_flt", TypeProtos.MinorType.FLOAT4)
+      .add("col_intrvl_yr", TypeProtos.MinorType.INTERVAL)
+      .add("col_intrvl_day", TypeProtos.MinorType.INTERVAL)
+      .add("col_bln", TypeProtos.MinorType.BIT);
+    BatchSchema expectedSchema = new BatchSchemaBuilder()
+      .withSchemaBuilder(schemaBuilder)
+      .build();
+
+    testBuilder()
+      .unOrdered()
+      .sqlQuery("select * from dfs.tmp.%s", outputFileName)
+      .schemaBaseLine(expectedSchema)
+      .go();
+  }
+
+  @Test
+  public void testWriteEmptyFileWithEmptySchema() throws Exception {
+    final String outputFileName = "testparquetwriteremptyfiles_testwriteemptyfileemptyschema";
+    final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
+
+    test("CREATE TABLE dfs.tmp.%s AS SELECT * FROM cp.`empty.json`", outputFileName);
+    assertFalse(outputFile.exists());
+  }
+
+  @Test
+  public void testWriteEmptySchemaChange() throws Exception {
+    final String outputFileName = "testparquetwriteremptyfiles_testwriteemptyschemachange";
+    final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
+
+    test("CREATE TABLE dfs.tmp.%s AS select id, a, b from dfs.`schemachange/multi/*.json` WHERE id = 0", outputFileName);
+
+    // Only the last scan scheme is written
+    SchemaBuilder schemaBuilder = new SchemaBuilder()
+      .addNullable("id", TypeProtos.MinorType.BIGINT)
+      .addNullable("a", TypeProtos.MinorType.BIGINT)
+      .addNullable("b", TypeProtos.MinorType.BIT);
+    BatchSchema expectedSchema = new BatchSchemaBuilder()
+      .withSchemaBuilder(schemaBuilder)
+      .build();
+
+    testBuilder()
+      .unOrdered()
+      .sqlQuery("select * from dfs.tmp.%s", outputFileName)
+      .schemaBaseLine(expectedSchema)
+      .go();
+
+    // Make sure that only 1 parquet file was created
+    assertEquals(1, outputFile.list((dir, name) -> name.endsWith("parquet")).length);
+  }
+
+  @Test
+  public void testComplexEmptyFileSchema() throws Exception {
+    final String outputFileName = "testparquetwriteremptyfiles_testcomplexemptyfileschema";
+
+    test("create table dfs.tmp.%s as select * from dfs.`parquet/empty/complex/empty_complex.parquet`", outputFileName);
 
     // end_date column is null, so it missing in result schema.
     SchemaBuilder schemaBuilder = new SchemaBuilder()
-            .addNullable("employee_id", TypeProtos.MinorType.BIGINT)
-            .addNullable("full_name", TypeProtos.MinorType.VARCHAR)
-            .addNullable("first_name", TypeProtos.MinorType.VARCHAR)
-            .addNullable("last_name", TypeProtos.MinorType.VARCHAR)
-            .addNullable("position_id", TypeProtos.MinorType.BIGINT)
-            .addNullable("position_title", TypeProtos.MinorType.VARCHAR)
-            .addNullable("store_id", TypeProtos.MinorType.BIGINT)
-            .addNullable("department_id", TypeProtos.MinorType.BIGINT)
-            .addNullable("birth_date", TypeProtos.MinorType.VARCHAR)
-            .addNullable("hire_date", TypeProtos.MinorType.VARCHAR)
-            .addNullable("salary", TypeProtos.MinorType.FLOAT8)
-            .addNullable("supervisor_id", TypeProtos.MinorType.BIGINT)
-            .addNullable("education_level", TypeProtos.MinorType.VARCHAR)
-            .addNullable("marital_status", TypeProtos.MinorType.VARCHAR)
-            .addNullable("gender", TypeProtos.MinorType.VARCHAR)
-            .addNullable("management_role", TypeProtos.MinorType.VARCHAR);
+      .addNullable("id", TypeProtos.MinorType.BIGINT)
+      .addNullable("name", TypeProtos.MinorType.VARCHAR)
+      .addArray("orders", TypeProtos.MinorType.BIGINT);
     BatchSchema expectedSchema = new BatchSchemaBuilder()
-            .withSchemaBuilder(schemaBuilder)
-            .build();
+      .withSchemaBuilder(schemaBuilder)
+      .build();
 
     testBuilder()
-            .unOrdered()
-            .sqlQuery("select * from dfs.tmp.%s", outputFileName)
-            .schemaBaseLine(expectedSchema)
-            .go();
+      .unOrdered()
+      .sqlQuery("select * from dfs.tmp.%s", outputFileName)
+      .schemaBaseLine(expectedSchema)
+      .go();
   }
 
   @Test
-  public void testMultipleWriters() throws Exception {
-    final String outputFile = "testparquetwriteremptyfiles_testmultiplewriters";
-
-    runSQL("alter session set `planner.slice_target` = 1");
-
-    try {
-      final String query = "SELECT position_id FROM cp.`employee.json` WHERE position_id IN (15, 16) GROUP BY position_id";
-
-      test("CREATE TABLE dfs.tmp.%s AS %s", outputFile, query);
-
-      // this query will fail if an "empty" file was created
-      testBuilder()
-        .unOrdered()
-        .sqlQuery("SELECT * FROM dfs.tmp.%s", outputFile)
-        .sqlBaselineQuery(query)
-        .go();
-    } finally {
-      runSQL("alter session set `planner.slice_target` = " + ExecConstants.SLICE_TARGET_DEFAULT);
-    }
-  }
-
-  @Test // see DRILL-2408
   public void testWriteEmptyFileAfterFlush() throws Exception {
     final String outputFileName = "testparquetwriteremptyfiles_test_write_empty_file_after_flush";
     final File outputFile = FileUtils.getFile(dirTestWatcher.getDfsTestTmpDir(), outputFileName);
@@ -121,7 +157,7 @@ public class TestParquetWriterEmptyFiles extends BaseTestQuery {
       test("CREATE TABLE dfs.tmp.%s AS %s", outputFileName, query);
 
       // Make sure that only 1 parquet file was created
-      Assert.assertEquals(1, outputFile.list((dir, name) -> name.endsWith("parquet")).length);
+      assertEquals(1, outputFile.list((dir, name) -> name.endsWith("parquet")).length);
 
       // this query will fail if an "empty" file was created
       testBuilder()
