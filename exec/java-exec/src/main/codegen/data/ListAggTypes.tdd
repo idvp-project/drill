@@ -1,0 +1,54 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http:# www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{
+  types: [
+    {source: "VarChar", type: "VarLen", listagg: true},
+    {source: "NullableVarChar", type: "VarLen", listagg: true},
+
+    {source: "VarBinary", type: "VarLen", listagg: false},
+    {source: "NullableVarBinary", type: "VarLen", listagg: false},
+
+    {source: "VarDecimal", type: "VarDecimal", listagg: true},
+    {source: "NullableVarDecimal", type: "VarDecimal", listagg: true},
+
+    {source: "Bit", type: "Boolean", listagg: true},
+    {source: "NullableBit", type: "Boolean", listagg: true},
+
+    {source: "Int", type: "Primitive", javaType: "Integer", listagg: true},
+    {source: "NullableInt", type: "Primitive", javaType: "Integer", listagg: true},
+    {source: "BigInt", type: "Primitive", javaType: "Long", listagg: true},
+    {source: "NullableBigInt", type: "Primitive", javaType: "Long", listagg: true},
+    {source: "Float4", type: "Primitive", javaType: "Float", listagg: true},
+    {source: "NullableFloat4", type: "Primitive", javaType: "Float", listagg: true},
+    {source: "Float8", type: "Primitive", javaType: "Double", listagg: true},
+    {source: "NullableFloat8", type: "Primitive", javaType: "Double", listagg: true},
+
+    {source: "Time", type: "Time", listagg: true},
+    {source: "NullableTime", type: "Time", listagg: true},
+    {source: "Date", type: "Time", listagg: true},
+    {source: "NullableDate", type: "Time", listagg: true},
+    {source: "TimeStamp", type: "Time", listagg: true},
+    {source: "NullableTimeStamp", type: "Time", listagg: true},
+
+    {source: "Interval", type: "Interval", listagg: true},
+    {source: "NullableInterval", type: "Interval", listagg: true},
+    {source: "IntervalDay", type: "IntervalDay", listagg: true},
+    {source: "NullableIntervalDay", type: "IntervalDay", listagg: true},
+    {source: "IntervalYear", type: "IntervalYear", listagg: true},
+    {source: "NullableIntervalYear", type: "IntervalYear", listagg: true},
+  ]
+}
