@@ -52,7 +52,7 @@
   statementParserMethods: [
     "SqlShowTables()",
     "SqlShowSchemas()",
-    "SqlShowStorage()",
+    "SqlShowPlugin()",
     "SqlDescribeSchema()"
     "SqlDescribeTable()",
     "SqlUseSchema()",

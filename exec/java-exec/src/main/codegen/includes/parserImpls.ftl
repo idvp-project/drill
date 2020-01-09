@@ -537,7 +537,7 @@ SqlNode SqlDropStorage(SqlParserPos pos) :
 {
     [ <IF> <EXISTS> { existenceCheck = true; } ]
     {
-        return new SqlDropPlugin(pos, SimpleIdentifier(), storageExistenceCheck);
+        return new SqlDropPlugin(pos, SimpleIdentifier(), existenceCheck);
     }
 }
 
