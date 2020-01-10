@@ -790,6 +790,7 @@
               -XX:+CMSClassUnloadingEnabled -ea
               -Djdk.attach.allowAttachSelf=true
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
+              -Duser.language=en -Duser.country=US
             </argLine>
             <forkCount>${forkCount}</forkCount>
             <reuseForks>true</reuseForks>
@@ -3694,4 +3695,15 @@
     <module>distribution</module>
     <module>metastore</module>
   </modules>
+
+  <distributionManagement>
+    <repository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
