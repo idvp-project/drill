@@ -208,6 +208,12 @@ public class Drillbit implements AutoCloseable {
       profileStoreProvider.start();
     }
     DrillbitEndpoint md = engine.start();
+    if (context.getConfig().getBoolean(ExecConstants.HTTP_ENABLE)) {
+      int port = context.getConfig().getInt(ExecConstants.HTTP_PORT);
+      // unstable
+      md = md.toBuilder().setHttpPort(port).build();
+    }
+
     manager.start(md, engine.getController(), engine.getDataConnectionCreator(), coord, storeProvider, profileStoreProvider);
     final DrillbitContext drillbitContext = manager.getContext();
     storageRegistry = drillbitContext.getStorage();

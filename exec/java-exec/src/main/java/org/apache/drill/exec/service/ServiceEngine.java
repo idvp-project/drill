@@ -102,7 +102,7 @@ public class ServiceEngine implements AutoCloseable {
         .setAddress(hostName)
         .setUserPort(userPort)
         .setVersion(DrillVersionInfo.getVersion())
-        .setState(State.STARTUP)
+        .setState(State.ONLINE)
         .build();
 
     partialEndpoint = controller.start(partialEndpoint, allowPortHunting);
