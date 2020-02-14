@@ -158,6 +158,8 @@
                  you can use TestHiveStorage.readFromAlteredPartitionedTableWithEmptyGroupType() test case. -->
                 <exclude>org/apache/parquet/**</exclude>
                 <exclude>shaded/parquet/org/**</exclude>
+                <exclude>org/apache/commons/lang/**</exclude>
+                <exclude>org/apache/commons/lang3/**</exclude>
               </excludes>
             </filter>
           </filters>
