@@ -746,6 +746,38 @@ public class TestCastFunctions extends ClusterTest {
     Assert.assertEquals(result, "74 days 13:35:00");
   }
 
+  @Test
+  public void testCastBitToInt() throws Exception {
+    testBuilder()
+      .sqlQuery("select cast(true as int) as c1")
+      .unOrdered()
+      .baselineColumns("c1")
+      .baselineValues(1)
+      .go();
+  }
+
+
+  @Test
+  public void testImplicitCastBitToInt() throws Exception {
+    try {
+      run("create table dfs.tmp.test_implicit_bit_to_int as\n" +
+        "(select true as c1, 0 as c2)");
+
+      String query =
+        "select * from dfs.tmp.test_implicit_bit_to_int\n" +
+          "where c1 = 1 and c2 = false";
+
+      testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("c1", "c2")
+        .baselineValues(true, 0)
+        .go();
+    } finally {
+      run("drop table if exists dfs.tmp.test_implicit_bit_to_int");
+    }
+  }
+
   @Test // DRILL-6959
   public void testCastTimestampLiteralInFilter() throws Exception {
     try {
