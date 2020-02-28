@@ -387,11 +387,11 @@ public class TestUnionAll extends BaseTestQuery {
   @Test(expected = UserException.class) // see DRILL-2590
   public void testUnionAllImplicitCastingFailure() throws Exception {
     String rootInt = "/store/json/intData.json";
-    String rootBoolean = "/store/json/booleanData.json";
+    String rootTimeStmp = "/store/json/timeStmpData.json";
 
     test("(select key from cp.`%s` " +
         "union all " +
-        "select key from cp.`%s` )", rootInt, rootBoolean);
+        "select key from cp.`%s` )", rootInt, rootTimeStmp);
   }
 
   @Test // see DRILL-2591
