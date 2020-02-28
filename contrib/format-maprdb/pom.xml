@@ -24,7 +24,7 @@
   <parent>
     <artifactId>drill-contrib-parent</artifactId>
     <groupId>org.apache.drill.contrib</groupId>
-    <version>1.17.0-0.5.2</version>
+    <version>1.17.0-0.5.4</version>
   </parent>
 
   <artifactId>drill-format-mapr</artifactId>

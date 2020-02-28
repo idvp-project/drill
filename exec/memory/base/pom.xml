@@ -23,7 +23,7 @@
   <parent>
     <artifactId>memory-parent</artifactId>
     <groupId>org.apache.drill.memory</groupId>
-    <version>1.17.0-0.5.2</version>
+    <version>1.17.0-0.5.4</version>
   </parent>
   <artifactId>drill-memory-base</artifactId>
   <name>exec/memory/base</name>
