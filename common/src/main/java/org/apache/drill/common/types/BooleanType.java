@@ -71,6 +71,25 @@ public enum BooleanType {
   }
 
   /**
+   * Finds boolean by passed number.
+   *
+   * @param value number representation
+   * @return boolean type
+   * @throws IllegalArgumentException if boolean type is not found
+   */
+  public static BooleanType get(int value) {
+    if (TRUE.getNumericValue() == value) {
+      return TRUE;
+    }
+
+    if (FALSE.getNumericValue() == value) {
+      return FALSE;
+    }
+
+    throw new IllegalArgumentException("Invalid value for boolean: " + value);
+  }
+
+  /**
    * Runtime form of Boolean conversion: allows any of the valid "true" values;
    * assumes all other values are false. Does case-insensitive comparisons.
    * If the string must be trimmed, the caller should do it.
