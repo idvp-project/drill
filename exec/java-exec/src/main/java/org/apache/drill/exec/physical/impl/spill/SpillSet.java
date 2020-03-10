@@ -20,10 +20,12 @@ package org.apache.drill.exec.physical.impl.spill;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.StandardOpenOption;
@@ -47,6 +49,10 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.xerial.snappy.SnappyInputStream;
+import org.xerial.snappy.SnappyOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
@@ -406,7 +412,7 @@ public class SpillSet {
 
   private int fileCount = 0;
 
-  private FileManager fileManager;
+  private final FileManager fileManager;
 
   private long readBytes;
 
@@ -422,6 +428,7 @@ public class SpillSet {
     // Set the spill options from the configuration
     String spillFs;
     List<String> dirList;
+    String compression;
 
     // Set the operator name (used as part of the spill file name),
     // and set oper. specific options (the config file defaults to using the
@@ -430,19 +437,23 @@ public class SpillSet {
         operName = "Sort";
         spillFs = config.getString(ExecConstants.EXTERNAL_SORT_SPILL_FILESYSTEM);
         dirList = config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS);
+        compression = config.getString(ExecConstants.EXTERNAL_SORT_SPILL_COMPRESSION);
     } else if (popConfig instanceof HashAggregate) {
         operName = "HashAgg";
         spillFs = config.getString(ExecConstants.HASHAGG_SPILL_FILESYSTEM);
         dirList = config.getStringList(ExecConstants.HASHAGG_SPILL_DIRS);
+        compression = config.getString(ExecConstants.HASHAGG_SPILL_COMPRESSION);
     } else if (popConfig instanceof HashJoinPOP) {
       operName = "HashJoin";
       spillFs = config.getString(ExecConstants.HASHJOIN_SPILL_FILESYSTEM);
       dirList = config.getStringList(ExecConstants.HASHJOIN_SPILL_DIRS);
+      compression = config.getString(ExecConstants.HASHJOIN_SPILL_COMPRESSION);
     } else {
         // just use the common ones
         operName = "Unknown";
         spillFs = config.getString(ExecConstants.SPILL_FILESYSTEM);
         dirList = config.getStringList(ExecConstants.SPILL_DIRS);
+        compression = config.getString(ExecConstants.SPILL_COMPRESSION);
     }
 
     dirs = Iterators.cycle(dirList);
@@ -465,12 +476,15 @@ public class SpillSet {
     // system is selected and impersonation is off. (We use that
     // as a proxy for a non-production Drill setup.)
 
+    FileManager fileManager;
     boolean impersonationEnabled = config.getBoolean(ExecConstants.IMPERSONATION_ENABLED);
     if (spillFs.startsWith(FileSystem.DEFAULT_FS) && ! impersonationEnabled) {
       fileManager = new LocalFileManager(spillFs);
     } else {
       fileManager = new HadoopFileManager(spillFs);
     }
+
+    this.fileManager = new CompressedFileManager(fileManager, compression);
 
     spillDirName = String.format("%s_%s_%s-%s-%s",
         QueryIdHelper.getQueryId(handle.getQueryId()),
@@ -561,5 +575,153 @@ public class SpillSet {
   public void close(VectorSerializer.Writer writer) throws IOException {
     tallyWriteBytes(writer.getBytesWritten());
     writer.close();
+  }
+
+  /**
+   * FileManager wrapper supporting file compression.
+   */
+  private static class CompressedFileManager implements FileManager {
+
+    private final FileManager fileManager;
+    private final CompressedStreamFactory compressedStreamFactory;
+
+    protected CompressedFileManager(FileManager fileManager, String codecName) {
+      this.fileManager = fileManager;
+      switch (codecName.toLowerCase()) {
+        case "none":
+          compressedStreamFactory = new NoneCompressedStreamFactory();
+          break;
+        case "gzip":
+          compressedStreamFactory = new GzipCompressedStreamFactory();
+          break;
+        case "snappy":
+          compressedStreamFactory = new SnappyCompressedStreamFactory();
+          break;
+        default:
+          throw new UnsupportedOperationException(String.format("Unknown compression type: %s", codecName));
+      }
+    }
+
+    @Override
+    public void deleteOnExit(String fragmentSpillDir) throws IOException {
+      fileManager.deleteOnExit(fragmentSpillDir);
+    }
+
+    @Override
+    public WritableByteChannel createForWrite(String fileName) throws IOException {
+      WritableByteChannel channel = fileManager.createForWrite(fileName);
+      return new CompressedWritableByteChannel(channel);
+    }
+
+    @Override
+    public InputStream openForInput(String fileName) throws IOException {
+      InputStream stream = fileManager.openForInput(fileName);
+      return new CompressedInputStream(stream);
+    }
+
+    @Override
+    public void deleteFile(String fileName) throws IOException {
+      fileManager.deleteFile(fileName);
+    }
+
+    @Override
+    public void deleteDir(String fragmentSpillDir) throws IOException {
+      fileManager.deleteDir(fragmentSpillDir);
+    }
+
+    @Override
+    public long getWriteBytes(WritableByteChannel channel) {
+      return fileManager.getWriteBytes(((CompressedWritableByteChannel) channel).original);
+    }
+
+    @Override
+    public long getReadBytes(InputStream inputStream) {
+      return fileManager.getReadBytes(((CompressedInputStream) inputStream).original);
+    }
+
+    /**
+     * Factory responsible for creating compressed streams.
+     */
+    private interface CompressedStreamFactory {
+      WritableByteChannel toCompressedStream(WritableByteChannel out) throws IOException;
+      InputStream toCompressedStream(InputStream input) throws IOException;
+    }
+
+    private static final class NoneCompressedStreamFactory implements CompressedStreamFactory {
+      @Override
+      public WritableByteChannel toCompressedStream(WritableByteChannel out) {
+        return out;
+      }
+
+      @Override
+      public InputStream toCompressedStream(InputStream input) {
+        return input;
+      }
+    }
+
+    private static final class SnappyCompressedStreamFactory implements CompressedStreamFactory {
+      @Override
+      public WritableByteChannel toCompressedStream(WritableByteChannel out) throws IOException {
+        OutputStream outputStream = Channels.newOutputStream(out);
+        outputStream = new SnappyOutputStream(outputStream);
+        return Channels.newChannel(outputStream);
+      }
+
+      @Override
+      public InputStream toCompressedStream(InputStream input) throws IOException {
+        return new SnappyInputStream(input);
+      }
+    }
+
+    private static final class GzipCompressedStreamFactory implements CompressedStreamFactory {
+      @Override
+      public WritableByteChannel toCompressedStream(WritableByteChannel out) throws IOException {
+        OutputStream outputStream = Channels.newOutputStream(out);
+        outputStream = new GzipCompressorOutputStream(outputStream);
+        return Channels.newChannel(outputStream);
+      }
+
+      @Override
+      public InputStream toCompressedStream(InputStream input) throws IOException {
+        return new GzipCompressorInputStream(input);
+      }
+    }
+
+    private final class CompressedWritableByteChannel implements WritableByteChannel {
+      private final WritableByteChannel original;
+      private final WritableByteChannel compressed;
+
+      CompressedWritableByteChannel(WritableByteChannel out) throws IOException {
+        this.original = out;
+        this.compressed = compressedStreamFactory.toCompressedStream(out);
+      }
+
+      @Override
+      public int write(ByteBuffer src) throws IOException {
+        return compressed.write(src);
+      }
+
+      @Override
+      public boolean isOpen() {
+        return compressed.isOpen() && original.isOpen();
+      }
+
+      @Override
+      public void close() throws IOException {
+        compressed.close();
+        if (original.isOpen()) {
+          original.close();
+        }
+      }
+    }
+
+    private final class CompressedInputStream extends FilterInputStream {
+      private final InputStream original;
+
+      CompressedInputStream(InputStream input) throws IOException {
+        super(compressedStreamFactory.toCompressedStream(input));
+        this.original = input;
+      }
+    }
   }
 }
