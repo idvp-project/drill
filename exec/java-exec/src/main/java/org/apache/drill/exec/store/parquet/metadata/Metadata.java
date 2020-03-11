@@ -640,6 +640,9 @@ public class Metadata {
     } catch (IOException e) {
       logger.error("Failed to read '{}' metadata file", path, e);
       metaContext.setMetadataCacheCorrupted(true);
+    } catch (RuntimeException e) {
+      logger.error("Unexpected error occurred while reading '{}' metadata file", path, e);
+      metaContext.setMetadataCacheCorrupted(true);
     }
   }
 
