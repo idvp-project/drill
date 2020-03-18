@@ -43,7 +43,7 @@ public class PlannerSettings implements Context{
   private boolean forceSingleMode;
 
   public static final int MAX_BROADCAST_THRESHOLD = Integer.MAX_VALUE;
-  public static final int DEFAULT_IDENTIFIER_MAX_LENGTH = 10240;
+  public static final int DEFAULT_IDENTIFIER_MAX_LENGTH = 102400;
 
   // initial off heap memory allocation (1M)
   private static final long INITIAL_OFF_HEAP_ALLOCATION_IN_BYTES = 1024 * 1024;
