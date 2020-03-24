@@ -33,7 +33,8 @@ public abstract class CommonParquetRecordReader extends AbstractRecordReader {
 
   protected final FragmentContext fragmentContext;
 
-  public ParquetReaderStats parquetReaderStats = new ParquetReaderStats();
+  private volatile boolean parquetReaderStatsClosed = false;
+  public final ParquetReaderStats parquetReaderStats = new ParquetReaderStats();
 
   protected OperatorContext operatorContext;
 
@@ -79,12 +80,12 @@ public abstract class CommonParquetRecordReader extends AbstractRecordReader {
   }
 
   protected void closeStats(Logger logger, Path hadoopPath) {
-    if (parquetReaderStats != null) {
+    if (!parquetReaderStatsClosed) {
       if ( operatorContext != null ) {
         parquetReaderStats.update(operatorContext.getStats());
       }
       parquetReaderStats.logStats(logger, hadoopPath);
-      parquetReaderStats = null;
+      parquetReaderStatsClosed = true;
     }
   }
 
