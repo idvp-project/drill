@@ -25,32 +25,32 @@ import org.apache.hadoop.fs.Path;
 
 public class ParquetReaderStats {
 
-  public AtomicLong numRowgroups = new AtomicLong();
-  public AtomicLong rowgroupsPruned = new AtomicLong();
+  public final AtomicLong numRowgroups = new AtomicLong();
+  public final AtomicLong rowgroupsPruned = new AtomicLong();
 
-  public AtomicLong numDictPageLoads = new AtomicLong();
-  public AtomicLong numDataPageLoads = new AtomicLong();
-  public AtomicLong numDataPagesDecoded = new AtomicLong();
-  public AtomicLong numDictPagesDecompressed = new AtomicLong();
-  public AtomicLong numDataPagesDecompressed = new AtomicLong();
+  public final AtomicLong numDictPageLoads = new AtomicLong();
+  public final AtomicLong numDataPageLoads = new AtomicLong();
+  public final AtomicLong numDataPagesDecoded = new AtomicLong();
+  public final AtomicLong numDictPagesDecompressed = new AtomicLong();
+  public final AtomicLong numDataPagesDecompressed = new AtomicLong();
 
-  public AtomicLong totalDictPageReadBytes = new AtomicLong();
-  public AtomicLong totalDataPageReadBytes = new AtomicLong();
-  public AtomicLong totalDictDecompressedBytes = new AtomicLong();
-  public AtomicLong totalDataDecompressedBytes = new AtomicLong();
+  public final AtomicLong totalDictPageReadBytes = new AtomicLong();
+  public final AtomicLong totalDataPageReadBytes = new AtomicLong();
+  public final AtomicLong totalDictDecompressedBytes = new AtomicLong();
+  public final AtomicLong totalDataDecompressedBytes = new AtomicLong();
 
-  public AtomicLong timeDictPageLoads = new AtomicLong();
-  public AtomicLong timeDataPageLoads = new AtomicLong();
-  public AtomicLong timeDataPageDecode = new AtomicLong();
-  public AtomicLong timeDictPageDecode = new AtomicLong();
-  public AtomicLong timeDictPagesDecompressed = new AtomicLong();
-  public AtomicLong timeDataPagesDecompressed = new AtomicLong();
+  public final AtomicLong timeDictPageLoads = new AtomicLong();
+  public final AtomicLong timeDataPageLoads = new AtomicLong();
+  public final AtomicLong timeDataPageDecode = new AtomicLong();
+  public final AtomicLong timeDictPageDecode = new AtomicLong();
+  public final AtomicLong timeDictPagesDecompressed = new AtomicLong();
+  public final AtomicLong timeDataPagesDecompressed = new AtomicLong();
 
-  public AtomicLong timeDiskScanWait = new AtomicLong();
-  public AtomicLong timeDiskScan = new AtomicLong();
-  public AtomicLong timeFixedColumnRead = new AtomicLong();
-  public AtomicLong timeVarColumnRead = new AtomicLong();
-  public AtomicLong timeProcess = new AtomicLong();
+  public final AtomicLong timeDiskScanWait = new AtomicLong();
+  public final AtomicLong timeDiskScan = new AtomicLong();
+  public final AtomicLong timeFixedColumnRead = new AtomicLong();
+  public final AtomicLong timeVarColumnRead = new AtomicLong();
+  public final AtomicLong timeProcess = new AtomicLong();
 
   public ParquetReaderStats() {
   }
