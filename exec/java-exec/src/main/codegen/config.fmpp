@@ -47,6 +47,7 @@ data: {
     casthigh:                 tdd(../data/CastHigh.tdd),
     countAggrTypes:           tdd(../data/CountAggrTypes.tdd),
     listagg:                  tdd(../data/ListAggTypes.tdd)
+    repeatedTypes:            tdd(../data/RepeatedTypes.tdd)
 }
 freemarkerLinks: {
     includes: includes/
