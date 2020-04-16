@@ -1,0 +1,22 @@
+{
+  types: [
+    { type: "RepeatedInt", writer: "integer", holder: "IntHolder", decimal: false },
+    { type: "RepeatedBigInt", writer: "bigInt", holder: "BigIntHolder", decimal: false },
+    { type: "RepeatedFloat4", writer: "float4", holder: "Float4Holder", decimal: false },
+    { type: "RepeatedFloat8", writer: "float8", holder: "Float8Holder", decimal: false },
+    { type: "RepeatedDate", writer: "date", holder: "DateHolder", decimal: false },
+    { type: "RepeatedTimeStamp", writer: "timeStamp", holder: "TimeStampHolder", decimal: false },
+    { type: "RepeatedTime", writer: "time", holder: "TimeHolder", decimal: false },
+    { type: "RepeatedIntervalDay", writer: "intervalDay", holder: "IntervalDayHolder", decimal: false },
+    { type: "RepeatedIntervalYear", writer: "intervalYear", holder: "IntervalYearHolder", decimal: false },
+    { type: "RepeatedInterval", writer: "interval", holder: "IntervalHolder", decimal: false },
+    { type: "RepeatedVarChar", writer: "varChar", holder: "VarCharHolder", decimal: false },
+    { type: "RepeatedVarBinary", writer: "varBinary", holder: "VarBinaryHolder", decimal: false },
+    { type: "RepeatedVarDecimal", writer: "varDecimal", holder: "VarDecimalHolder", decimal: true },
+    { type: "RepeatedDecimal9", writer: "decimal9", holder: "Decimal9Holder", decimal: true },
+    { type: "RepeatedDecimal18", writer: "decimal18", holder: "Decimal18Holder", decimal: true },
+    { type: "RepeatedDecimal28Sparse", writer: "decimal28Sparse", holder: "Decimal28SparseHolder", decimal: true },
+    { type: "RepeatedDecimal38Sparse", writer: "decimal38Sparse", holder: "Decimal38SparseHolder", decimal: true }
+  ]
+}
+
