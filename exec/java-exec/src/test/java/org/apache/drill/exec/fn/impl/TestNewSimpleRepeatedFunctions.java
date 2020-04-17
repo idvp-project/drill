@@ -81,6 +81,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctVarCharJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(str_list, str_list))", "cp.`store/json/json_basic_repeated_varchar.json`")
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(4, 1, 3, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountIntJSON() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int_col", REPEATED_TYPES_JSON_TABLE)
@@ -101,6 +111,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctIntJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int_col, int_col))", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(12, 4, 4, 4)
+        .go();
+  }
+
+  @Test
   public void testRepeatedFloatJSON() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "float4_col", REPEATED_TYPES_JSON_TABLE)
@@ -117,6 +137,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(14, 8, 8, 8)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctFloatJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(float4_col, float4_col))", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(7, 4, 4, 4)
         .go();
   }
 
@@ -151,6 +181,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctDate() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(date_list, date_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(3, 1, 0)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountTime() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "time_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -167,6 +207,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(2, 8, 6)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctTime() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(time_list, time_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
         .go();
   }
 
@@ -191,6 +241,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctTimestamp() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(timestamp_list, timestamp_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 2, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInterval() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "interval_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -207,6 +267,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(4, 10, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctInterval() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(interval_list, interval_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 0)
         .go();
   }
 
@@ -231,6 +301,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctVarChar() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(string_list, string_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 1, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInt() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int8_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -247,6 +327,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(6, 2, 6)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctInt() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int8_list, int8_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
         .go();
   }
 
@@ -271,6 +361,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int16_list, int16_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInt_3() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int32_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -287,6 +387,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(2, 18, 6)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int32_list, int32_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
         .go();
   }
 
@@ -311,6 +421,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctUInt8() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(uint8_list, uint8_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountUInt16() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "uint16_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -327,6 +447,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 6, 2)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctUInt16() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(uint16_list, uint16_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 1, 1)
         .go();
   }
 
@@ -351,6 +481,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctUInt32() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(uint32_list, uint32_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountBigInt() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int64_raw_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -367,6 +507,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(8, 2, 4)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctBigInt() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int64_raw_list, int64_raw_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
         .go();
   }
 
@@ -391,6 +541,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctBigInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int64_list, int64_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountBigInt_3() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "uint64_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -407,6 +567,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 2, 6)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctBigInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(uint64_list, uint64_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 1, 1)
         .go();
   }
 
@@ -431,6 +601,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDistinctVarDecimal() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(decimal_list, decimal_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountVarBinary() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int96_raw_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -447,6 +627,16 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 2, 18)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDistinctVarBinary() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(int96_raw_list, int96_raw_list))", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 1, 1)
         .go();
   }
 
