@@ -122,7 +122,7 @@ public class EmbeddedQueryQueue implements QueryQueue {
   }
 
   @Override
-  public QueueLease enqueue(QueryId queryId, double cost)
+  public QueueLease enqueue(QueryId queryId, double cost, boolean nestedQuery)
       throws QueueTimeoutException, QueryQueueException {
     try {
       if (! semaphore.tryAcquire(queueTimeoutMs, TimeUnit.MILLISECONDS) ) {

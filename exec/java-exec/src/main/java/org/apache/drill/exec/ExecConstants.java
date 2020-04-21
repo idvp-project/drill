@@ -725,9 +725,11 @@ public final class ExecConstants {
   public static final BooleanValidator ENABLE_QUEUE = new BooleanValidator("exec.queue.enable",
       new OptionDescription("Changes the state of query queues. False allows unlimited concurrent queries."));
   public static final LongValidator LARGE_QUEUE_SIZE = new PositiveLongValidator("exec.queue.large", 10_000,
-      new OptionDescription("Sets the number of large queries that can run concurrently in the cluster. Range: 0-1000"));
+      new OptionDescription("Sets the number of large queries that can run concurrently in the cluster. Range: 0-10000"));
   public static final LongValidator SMALL_QUEUE_SIZE = new PositiveLongValidator("exec.queue.small", 100_000,
-      new OptionDescription("Sets the number of small queries that can run concurrently in the cluster. Range: 0-1001"));
+      new OptionDescription("Sets the number of small queries that can run concurrently in the cluster. Range: 0-100000"));
+  public static final LongValidator NESTED_QUEUE_SIZE = new PositiveLongValidator("exec.queue.nested", 100_000,
+          new OptionDescription("Sets the number of nested queries that can run concurrently in the cluster. Range: 0-100000"));
   public static final LongValidator QUEUE_THRESHOLD_SIZE = new PositiveLongValidator("exec.queue.threshold", Long.MAX_VALUE,
       new OptionDescription("Sets the cost threshold, which depends on the complexity of the queries in queue, for determining whether query is large or small. Complex queries have higher thresholds. Range: 0-9223372036854775807"));
   public static final LongValidator QUEUE_TIMEOUT = new PositiveLongValidator("exec.queue.timeout_millis", Long.MAX_VALUE,
