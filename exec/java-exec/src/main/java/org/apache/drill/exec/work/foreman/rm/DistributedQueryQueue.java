@@ -114,6 +114,7 @@ public class DistributedQueryQueue implements QueryQueue {
   public static class ZKQueueInfo {
     public final int smallQueueSize;
     public final int largeQueueSize;
+    public final int nestedQueueSize;
     public final double queueThreshold;
     public final long memoryPerNode;
     public final long memoryPerSmallQuery;
@@ -122,6 +123,7 @@ public class DistributedQueryQueue implements QueryQueue {
     public ZKQueueInfo(DistributedQueryQueue queue) {
       smallQueueSize = queue.configSet.smallQueueSize;
       largeQueueSize = queue.configSet.largeQueueSize;
+      nestedQueueSize = queue.configSet.nestedQueueSize;
       queueThreshold = queue.configSet.queueThreshold;
       memoryPerNode = queue.memoryPerNode;
       memoryPerSmallQuery = queue.memoryPerSmallQuery;
@@ -143,6 +145,7 @@ public class DistributedQueryQueue implements QueryQueue {
     private final int queueTimeout;
     private final int largeQueueSize;
     private final int smallQueueSize;
+    private final int nestedQueueSize;
     private final double largeToSmallRatio;
     private final double reserveMemoryRatio;
     private final long minimumOperatorMemory;
@@ -160,6 +163,7 @@ public class DistributedQueryQueue implements QueryQueue {
 
       largeQueueSize = (int) optionManager.getOption(ExecConstants.LARGE_QUEUE_SIZE);
       smallQueueSize = (int) optionManager.getOption(ExecConstants.SMALL_QUEUE_SIZE);
+      nestedQueueSize = (int) optionManager.getOption(ExecConstants.NESTED_QUEUE_SIZE);
       largeToSmallRatio = optionManager.getOption(ExecConstants.QUEUE_MEMORY_RATIO);
       reserveMemoryRatio = optionManager.getOption(ExecConstants.QUEUE_MEMORY_RESERVE);
       minimumOperatorMemory = optionManager.getOption(ExecConstants.MIN_MEMORY_PER_BUFFERED_OP);
@@ -228,20 +232,21 @@ public class DistributedQueryQueue implements QueryQueue {
   public long minimumOperatorMemory() { return configSet.minimumOperatorMemory; }
 
   /**
-   * This limits the number of "small" and "large" queries that a Drill cluster will run
+   * This limits the number of "small", "large" and "nested" queries that a Drill cluster will run
    * simultaneously, if queuing is enabled. If the query is unable to run, this will block
    * until it can. Beware that this is called under run(), and so will consume a thread
    * while it waits for the required distributed semaphore.
    *
    * @param queryId query identifier
    * @param cost the query plan
+   * @param nestedQuery shows that the request is nested (from drill to itself)
    * @throws QueryQueueException if the underlying ZK queuing mechanism fails
    * @throws QueueTimeoutException if the query waits too long in the
    * queue
    */
 
   @Override
-  public QueueLease enqueue(QueryId queryId, double cost) throws QueryQueueException, QueueTimeoutException {
+  public QueueLease enqueue(QueryId queryId, double cost, boolean nestedQuery) throws QueryQueueException, QueueTimeoutException {
     final String queueName;
     DistributedLease lease = null;
     long queryMemory;
@@ -254,7 +259,11 @@ public class DistributedQueryQueue implements QueryQueue {
         refreshConfig();
 
         // get the appropriate semaphore
-        if (cost >= configSet.queueThreshold) {
+        if (nestedQuery) {
+          distributedSemaphore = clusterCoordinator.getSemaphore("query.nested", configSet.nestedQueueSize);
+          queueName = "nested";
+          queryMemory = defaultQueryMemoryPerNode(cost);
+        } else if (cost >= configSet.queueThreshold) {
           distributedSemaphore = clusterCoordinator.getSemaphore("query.large", configSet.largeQueueSize);
           queueName = "large";
           queryMemory = memoryPerLargeQuery;
