@@ -18,7 +18,6 @@
 package org.apache.drill.exec.fn.impl;
 
 import org.apache.drill.categories.SqlFunctionTest;
-import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
@@ -30,19 +29,14 @@ import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.joda.time.Period;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Category({SqlFunctionTest.class})
 public class TestListFunction extends ClusterTest {
