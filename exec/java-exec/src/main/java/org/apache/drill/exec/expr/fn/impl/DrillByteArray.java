@@ -65,8 +65,12 @@ public class DrillByteArray {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     DrillByteArray that = (DrillByteArray) o;
     return length == that.length &&
         Arrays.equals(bytes, that.bytes);
