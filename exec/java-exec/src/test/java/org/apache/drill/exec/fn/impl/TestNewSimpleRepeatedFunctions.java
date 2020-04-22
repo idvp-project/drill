@@ -121,6 +121,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffIntJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int_col, int_col)", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionIntJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int_col, int_col)", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(12, 4, 4, 4)
+        .go();
+  }
+
+  @Test
   public void testRepeatedFloatJSON() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "float4_col", REPEATED_TYPES_JSON_TABLE)
@@ -144,6 +164,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   public void testRepeatedDistinctFloatJSON() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_distinct(repeated_union(float4_col, float4_col))", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(7, 4, 4, 4)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffFloatJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(float4_col, float4_col)", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionFloatJSON() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(float4_col, float4_col)", REPEATED_TYPES_JSON_TABLE)
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(7, 4, 4, 4)
@@ -191,6 +231,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffDate() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(date_list, date_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionDate() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(date_list, date_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(3, 1, 0)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountTime() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "time_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -217,6 +277,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffTime() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(time_list, time_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionTime() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(time_list, time_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 4, 3)
         .go();
   }
 
@@ -251,6 +331,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffTimestamp() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(timestamp_list, timestamp_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionTimestamp() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(timestamp_list, timestamp_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 2, 5)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInterval() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "interval_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -277,6 +377,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 1, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffInterval() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(interval_list, interval_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionInterval() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(interval_list, interval_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(2, 5, 0)
         .go();
   }
 
@@ -311,6 +431,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffVarChar() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(string_list, string_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionVarChar() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(string_list, string_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 3, 10)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInt() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int8_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -337,6 +477,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffInt() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int8_list, int8_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionInt() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int8_list, int8_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(3, 1, 3)
         .go();
   }
 
@@ -371,6 +531,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int16_list, int16_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int16_list, int16_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(3, 2, 4)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInt_3() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int32_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -397,6 +577,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int32_list, int32_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int32_list, int32_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 9, 3)
         .go();
   }
 
@@ -431,6 +631,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffUInt8() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(uint8_list, uint8_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionUInt8() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(uint8_list, uint8_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(1, 7, 1)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountUInt16() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "uint16_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -457,6 +677,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffUInt16() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(uint16_list, uint16_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionUInt16() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(uint16_list, uint16_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 3, 1)
         .go();
   }
 
@@ -491,6 +731,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffUInt32() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(uint32_list, uint32_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionUInt32() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(uint32_list, uint32_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(4, 1, 4)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountBigInt() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int64_raw_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -517,6 +777,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffBigInt() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int64_raw_list, int64_raw_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionBigInt() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int64_raw_list, int64_raw_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(4, 1, 2)
         .go();
   }
 
@@ -551,6 +831,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffBigInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int64_list, int64_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionBigInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int64_list, int64_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(9, 2, 4)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountBigInt_3() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "uint64_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -577,6 +877,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffBigInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(uint64_list, uint64_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionBigInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(uint64_list, uint64_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 1, 3)
         .go();
   }
 
@@ -611,6 +931,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffVarDecimal() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(decimal_list, decimal_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionVarDecimal() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(decimal_list, decimal_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(7, 3, 6)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountVarBinary() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int96_raw_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -637,6 +977,26 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 1, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedDiffVarBinary() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(int96_raw_list, int96_raw_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 0, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionVarBinary() throws Exception {
+    testBuilder()
+        .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(int96_raw_list, int96_raw_list)", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(0, 1, 9)
         .go();
   }
 

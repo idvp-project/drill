@@ -56,8 +56,11 @@ public class RepeatedUnionFunctions {
       org.apache.drill.exec.vector.complex.writer.BaseWriter.ListWriter writer = out.rootAsList();
       writer.startList();
 
+      boolean empty = true;
+
       org.apache.drill.exec.expr.holders.${type.holder} holder = new org.apache.drill.exec.expr.holders.${type.holder}();
       for (int i = input1.start; i < input1.end; i++) {
+        empty = false;
         input1.vector.getAccessor().get(i, holder);
         <#if type.decimal>
         writer.${type.writer}(input1.reader.getType().getPrecision(), input1.reader.getType().getScale()).write(holder);
@@ -67,11 +70,20 @@ public class RepeatedUnionFunctions {
       }
 
       for (int i = input2.start; i < input2.end; i++) {
+        empty = false;
         input2.vector.getAccessor().get(i, holder);
         <#if type.decimal>
-        writer.${type.writer}(input1.reader.getType().getPrecision(), input1.reader.getType().getScale()).write(holder);
+        writer.${type.writer}(input2.reader.getType().getPrecision(), input2.reader.getType().getScale()).write(holder);
         <#else>
         writer.${type.writer}().write(holder);
+        </#if>
+      }
+
+      if (empty) {
+        <#if type.decimal>
+        writer.${type.writer}(input1.reader.getType().getPrecision(), input1.reader.getType().getScale());
+        <#else>
+        writer.${type.writer}();
         </#if>
       }
 
