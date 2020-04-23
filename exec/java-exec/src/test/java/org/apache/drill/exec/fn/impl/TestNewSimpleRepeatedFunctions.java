@@ -91,6 +91,56 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedDiffVarCharJSON() throws Exception {
+    testBuilder()
+            .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_diff(str_list, str_list)", "cp.`store/json/json_basic_repeated_varchar.json`")
+            .ordered()
+            .baselineColumns(COLUMN_NAME)
+            .baselineValuesForSingleColumn(0, 0, 0, 0)
+            .go();
+  }
+
+  @Test
+  public void testRepeatedIntersectionVarCharJSON() throws Exception {
+    testBuilder()
+            .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "repeated_intersection(str_list, str_list)", "cp.`store/json/json_basic_repeated_varchar.json`")
+            .ordered()
+            .baselineColumns(COLUMN_NAME)
+            .baselineValuesForSingleColumn(5, 1, 3, 1)
+            .go();
+  }
+
+  @Test
+  public void testRepeatedContainsVarCharJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(str_list, str_list) from cp.`store/json/json_basic_repeated_varchar.json`")
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyVarCharJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(str_list, str_list) from cp.`store/json/json_basic_repeated_varchar.json`")
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsVarCharJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(str_list, str_list) from cp.`store/json/json_basic_repeated_varchar.json`")
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountIntJSON() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int_col", REPEATED_TYPES_JSON_TABLE)
@@ -141,6 +191,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsIntJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int_col, int_col) from %s", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyIntJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int_col, int_col) from %s", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsIntJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int_col, int_col) from %s", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedFloatJSON() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "float4_col", REPEATED_TYPES_JSON_TABLE)
@@ -187,6 +267,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(7, 4, 4, 4)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsFloatJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(float4_col, float4_col) from %s", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyFloatJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(float4_col, float4_col) from %s", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsFloatJSON() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(float4_col, float4_col) from %s", REPEATED_TYPES_JSON_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true, true)
         .go();
   }
 
@@ -251,6 +361,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsDate() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(date_list, date_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyDate() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(date_list, date_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsDate() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(date_list, date_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountTime() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "time_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -297,6 +437,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 4, 3)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsTime() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(time_list, time_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyTime() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(time_list, time_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsTime() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(time_list, time_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -351,6 +521,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsTimestamp() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(timestamp_list, timestamp_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyTimestamp() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(timestamp_list, timestamp_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsTimestamp() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(timestamp_list, timestamp_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInterval() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "interval_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -397,6 +597,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(2, 5, 0)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsInterval() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(interval_list, interval_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyInterval() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(interval_list, interval_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsInterval() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(interval_list, interval_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -451,6 +681,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsVarChar() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(string_list, string_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyVarChar() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(string_list, string_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsVarChar() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(string_list, string_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInt() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int8_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -497,6 +757,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(3, 1, 3)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsInt() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int8_list, int8_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyInt() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int8_list, int8_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsInt() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int8_list, int8_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -551,6 +841,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int16_list, int16_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int16_list, int16_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int16_list, int16_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountInt_3() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int32_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -597,6 +917,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(1, 9, 3)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int32_list, int32_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int32_list, int32_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int32_list, int32_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -651,6 +1001,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsUInt8() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(uint8_list, uint8_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyUInt8() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(uint8_list, uint8_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsUInt8() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(uint8_list, uint8_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountUInt16() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "uint16_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -697,6 +1077,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 3, 1)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsUInt16() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(uint16_list, uint16_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyUInt16() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(uint16_list, uint16_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsUInt16() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(uint16_list, uint16_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -751,6 +1161,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsUInt32() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(uint32_list, uint32_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyUInt32() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(uint32_list, uint32_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsUInt32() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(uint32_list, uint32_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountBigInt() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int64_raw_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -797,6 +1237,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(4, 1, 2)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsBigInt() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int64_raw_list, int64_raw_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyBigInt() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int64_raw_list, int64_raw_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsBigInt() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int64_raw_list, int64_raw_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -851,6 +1321,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsBigInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int64_list, int64_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyBigInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int64_list, int64_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsBigInt_2() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int64_list, int64_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountBigInt_3() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "uint64_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -897,6 +1397,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 1, 3)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsBigInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(uint64_list, uint64_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyBigInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(uint64_list, uint64_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsBigInt_3() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(uint64_list, uint64_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
@@ -951,6 +1481,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
   }
 
   @Test
+  public void testRepeatedContainsVarDecimal() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(decimal_list, decimal_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyVarDecimal() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(decimal_list, decimal_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsBigVarDecimal() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(decimal_list, decimal_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
   public void testRepeatedCountVarBinary() throws Exception {
     testBuilder()
         .sqlQuery(SELECT_REPEATED_COUNT_QUERY, "int96_raw_list", REPEATED_TYPES_PARQUET_TABLE)
@@ -997,6 +1557,36 @@ public class TestNewSimpleRepeatedFunctions extends ClusterTest {
         .ordered()
         .baselineColumns(COLUMN_NAME)
         .baselineValuesForSingleColumn(0, 1, 9)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsVarBinary() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains(int96_raw_list, int96_raw_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedContainsAnyVarBinary() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_contains_any(int96_raw_list, int96_raw_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
+        .go();
+  }
+
+  @Test
+  public void testRepeatedEqualsBigVarBinary() throws Exception {
+    testBuilder()
+        .sqlQuery("select repeated_equals(int96_raw_list, int96_raw_list) from %s", REPEATED_TYPES_PARQUET_TABLE)
+        .ordered()
+        .baselineColumns(COLUMN_NAME)
+        .baselineValuesForSingleColumn(true, true, true)
         .go();
   }
 
