@@ -19,6 +19,7 @@ package org.apache.drill.exec.rpc.user;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
+import org.apache.drill.exec.proto.UserBitShared.QueryProfile;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.rpc.ConnectionThrottle;
 
@@ -48,7 +49,8 @@ public interface UserResultsListener {
    * The query has completed (successsful completion or cancellation). The listener will not receive any other
    * data or result message. Called when the server returns a terminal-non failing- state (COMPLETED or CANCELLED)
    * @param state
+   * @param profile Optional query profile info
    */
-  void queryCompleted(QueryState state);
+  void queryCompleted(QueryState state, QueryProfile profile);
 
 }
