@@ -776,7 +776,8 @@ public class Foreman implements Runnable {
        */
       final QueryResult.Builder resultBuilder = QueryResult.newBuilder()
           .setQueryId(queryId)
-          .setQueryState(resultState);
+          .setQueryState(resultState)
+          .setProfile(queryManager.getQueryProfile());
       final UserException uex;
       if (resultException != null) {
         final boolean verbose = queryContext.getOptions().getOption(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY).bool_val;

@@ -30,6 +30,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.exec.proto.UserBitShared.QueryData;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
+import org.apache.drill.exec.proto.UserBitShared.QueryProfile;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
@@ -128,7 +129,7 @@ public class QueryResultHandler {
         // A successful completion/canceled case--pass on via resultArrived
 
         try {
-          resultsListener.queryCompleted(queryState);
+          resultsListener.queryCompleted(queryState, queryResult.getProfile());
         } catch (Exception e) {
           resultsListener.submissionFailed(UserException.systemError(e).build(logger));
         }
@@ -208,6 +209,7 @@ public class QueryResultHandler {
     private final ConcurrentLinkedQueue<QueryDataBatch> results = Queues.newConcurrentLinkedQueue();
     private volatile UserException ex;
     private volatile QueryState queryState;
+    private volatile QueryProfile queryProfile;
     private volatile UserResultsListener output;
     private volatile ConnectionThrottle throttle;
 
@@ -221,7 +223,7 @@ public class QueryResultHandler {
           l.submissionFailed(ex);
           return true;
         } else if (queryState != null) {
-          l.queryCompleted(queryState);
+          l.queryCompleted(queryState, queryProfile);
           return true;
         }
 
@@ -230,12 +232,14 @@ public class QueryResultHandler {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
+    public void queryCompleted(QueryState state, QueryProfile profile) {
       assert queryState == null;
+      assert queryProfile == null;
       this.queryState = state;
+      this.queryProfile = profile;
       synchronized (this) {
         if (output != null) {
-          output.queryCompleted(state);
+          output.queryCompleted(state, profile);
         }
       }
     }

@@ -127,8 +127,8 @@ public class TestTpchDistributedConcurrent extends BaseTestQuery {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
-      super.queryCompleted(state);
+    public void queryCompleted(QueryState state, UserBitShared.QueryProfile profile) {
+      super.queryCompleted(state, profile);
 
       completionSemaphore.release();
       synchronized(TestTpchDistributedConcurrent.this) {

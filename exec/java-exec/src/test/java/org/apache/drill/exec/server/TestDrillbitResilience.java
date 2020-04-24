@@ -441,7 +441,7 @@ public class TestDrillbitResilience extends DrillTest {
     }
 
     @Override
-    public void queryCompleted(final QueryState state) {
+    public void queryCompleted(final QueryState state, final UserBitShared.QueryProfile profile) {
       this.state = state;
       latch.countDown();
     }

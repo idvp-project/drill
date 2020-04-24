@@ -29,6 +29,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.proto.UserBitShared.QueryData;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
+import org.apache.drill.exec.proto.UserBitShared.QueryProfile;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.rpc.ConnectionThrottle;
@@ -63,7 +64,7 @@ public class LoggingResultsListener implements UserResultsListener {
   }
 
   @Override
-  public void queryCompleted(QueryState state) {
+  public void queryCompleted(QueryState state, QueryProfile profile) {
     DrillAutoCloseables.closeNoChecked(allocator);
     logger.info("Total rows returned: {}. Returned in {} ms.", count.get(), w.elapsed(TimeUnit.MILLISECONDS));
   }
