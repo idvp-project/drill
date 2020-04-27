@@ -1,6 +1,6 @@
 Homepage: http://drill.apache.org/
 Package: Apache Drill
-Version: 1.17.0-0.5.5
+Version: 1.17.0-0.5.6
 Section: misc
 Priority: optional
 Architecture: all
