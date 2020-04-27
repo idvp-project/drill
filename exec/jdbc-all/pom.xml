@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.apache.drill.exec</groupId>
     <artifactId>exec-parent</artifactId>
-    <version>1.17.0-0.5.6</version>
+    <version>1.17.0-0.5.5</version>
   </parent>
 
   <artifactId>drill-jdbc-all</artifactId>
@@ -300,7 +300,6 @@
               <include>*:*</include>
             </includes>
             <excludes>
-              <exclude>io.protostuff:*</exclude>
               <exclude>${calcite.groupId}:calcite-core</exclude>
               <exclude>${calcite.groupId}:calcite-linq4j</exclude>
               <exclude>org.pentaho:*</exclude>
@@ -629,7 +628,6 @@
                   </includes>
                   <excludes>
                     <exclude>org.slf4j:jcl-over-slf4j</exclude>
-                    <exclude>io.protostuff:*</exclude>
                     <exclude>${calcite.groupId}:calcite-core</exclude>
                     <exclude>${calcite.groupId}:calcite-linq4j</exclude>
                     <exclude>org.pentaho:*</exclude>
