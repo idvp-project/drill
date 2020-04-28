@@ -32,6 +32,7 @@ import org.apache.drill.exec.expr.holders.NullableVarBinaryHolder;
 import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
 import org.apache.drill.exec.expr.holders.VarBinaryHolder;
 import org.apache.drill.exec.expr.holders.VarCharHolder;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 
 public class JsonConvertFrom {
@@ -46,6 +47,7 @@ public class JsonConvertFrom {
 
     @Param VarBinaryHolder in;
     @Inject DrillBuf buffer;
+    @Inject OptionManager options;
     @Workspace org.apache.drill.exec.vector.complex.fn.JsonReader jsonReader;
 
     @Output ComplexWriter writer;
@@ -54,6 +56,9 @@ public class JsonConvertFrom {
     public void setup() {
       jsonReader = new org.apache.drill.exec.vector.complex.fn.JsonReader.Builder(buffer)
           .defaultSchemaPathColumns()
+          .readNumbersAsDouble(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE))
+          .allTextMode(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_ALL_TEXT_MODE))
+          .enableNanInf(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READER_NAN_INF_NUMBERS))
           .build();
     }
 
@@ -74,6 +79,7 @@ public class JsonConvertFrom {
 
     @Param VarCharHolder in;
     @Inject DrillBuf buffer;
+    @Inject OptionManager options;
     @Workspace org.apache.drill.exec.vector.complex.fn.JsonReader jsonReader;
 
     @Output ComplexWriter writer;
@@ -82,6 +88,9 @@ public class JsonConvertFrom {
     public void setup() {
       jsonReader = new org.apache.drill.exec.vector.complex.fn.JsonReader.Builder(buffer)
           .defaultSchemaPathColumns()
+          .readNumbersAsDouble(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE))
+          .allTextMode(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_ALL_TEXT_MODE))
+          .enableNanInf(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READER_NAN_INF_NUMBERS))
           .build();
     }
 
@@ -102,6 +111,7 @@ public class JsonConvertFrom {
 
     @Param NullableVarBinaryHolder in;
     @Inject DrillBuf buffer;
+    @Inject OptionManager options;
     @Workspace org.apache.drill.exec.vector.complex.fn.JsonReader jsonReader;
 
     @Output ComplexWriter writer;
@@ -110,6 +120,9 @@ public class JsonConvertFrom {
     public void setup() {
       jsonReader = new org.apache.drill.exec.vector.complex.fn.JsonReader.Builder(buffer)
           .defaultSchemaPathColumns()
+          .readNumbersAsDouble(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE))
+          .allTextMode(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_ALL_TEXT_MODE))
+          .enableNanInf(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READER_NAN_INF_NUMBERS))
           .build();
     }
 
@@ -138,6 +151,7 @@ public class JsonConvertFrom {
 
     @Param NullableVarCharHolder in;
     @Inject DrillBuf buffer;
+    @Inject OptionManager options;
     @Workspace org.apache.drill.exec.vector.complex.fn.JsonReader jsonReader;
 
     @Output ComplexWriter writer;
@@ -146,6 +160,9 @@ public class JsonConvertFrom {
     public void setup() {
       jsonReader = new org.apache.drill.exec.vector.complex.fn.JsonReader.Builder(buffer)
           .defaultSchemaPathColumns()
+          .readNumbersAsDouble(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE))
+          .allTextMode(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_ALL_TEXT_MODE))
+          .enableNanInf(options.getBoolean(org.apache.drill.exec.ExecConstants.JSON_READER_NAN_INF_NUMBERS))
           .build();
     }
 
