@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.expr.fn.impl;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -116,19 +117,19 @@ public class CharSequenceWrapper implements CharSequence {
       // Wrap with java byte buffer
       ByteBuffer byteBuf = buffer.nioBuffer(start, end - start);
       while (charBuffer.capacity() < Integer.MAX_VALUE) {
-        byteBuf.mark();
+        ((Buffer) byteBuf).mark();
         if (decodeUT8(byteBuf)) {
           break;
         }
         // Failed to convert because the char buffer was not large enough
         growCharBuffer();
         // Make sure to reset the byte buffer we need to reprocess it
-        byteBuf.reset();
+        ((Buffer) byteBuf).reset();
       }
       this.start = 0;
       this.end = charBuffer.position();
       // reset the char buffer so the index are relative to the start of the buffer
-      charBuffer.rewind();
+      ((Buffer) charBuffer).rewind();
     }
   }
 
@@ -172,7 +173,7 @@ public class CharSequenceWrapper implements CharSequence {
     // We give it all of the input data in call.
     boolean endOfInput = true;
     decoder.reset();
-    charBuffer.rewind();
+    ((Buffer) charBuffer).rewind();
     // Convert utf-8 bytes to sequence of chars
     CoderResult result = decoder.decode(byteBuf, charBuffer, endOfInput);
     if (result.isOverflow()) {

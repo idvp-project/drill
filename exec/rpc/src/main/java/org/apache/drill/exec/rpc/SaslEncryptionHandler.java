@@ -24,6 +24,7 @@ import io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -151,7 +152,7 @@ class SaslEncryptionHandler extends MessageToMessageEncoder<ByteBuf> {
         encryptedBuf.writeBytes(lengthOctets.array());
 
         // reset the position for re-use in next round
-        lengthOctets.rewind();
+        ((Buffer) lengthOctets).rewind();
 
         // Write the encrypted bytes inside the buffer
         encryptedBuf.writeBytes(wrappedMsg);

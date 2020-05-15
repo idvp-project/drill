@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.parquet.columnreaders;
 
 import io.netty.buffer.DrillBuf;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
@@ -306,7 +307,7 @@ public final class VarLenColumnBulkInput<V extends ValueVector> implements VarLe
     buffer.order(ByteOrder.nativeOrder());
 
     parentInst.pageReader.pageData.getBytes((int) parentInst.pageReader.readyToReadPosInBytes, buffer.array(), 0, maxDataToProcess);
-    buffer.limit(maxDataToProcess);
+    ((Buffer) buffer).limit(maxDataToProcess);
 
     int numValues = 0;
     int fixedDataLen = -1;
@@ -331,7 +332,7 @@ public final class VarLenColumnBulkInput<V extends ValueVector> implements VarLe
       if (buffer.remaining() < data_len) {
         break;
       }
-      buffer.position(buffer.position() + data_len);
+      ((Buffer) buffer).position(buffer.position() + data_len);
 
       ++numValues;
 

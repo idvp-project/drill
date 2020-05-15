@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.avro;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -101,7 +102,7 @@ public class AvroTestUtil {
         ByteBuffer bb = ((ByteBuffer)value);
         byte[] drillVal = new byte[((ByteBuffer)value).remaining()];
         bb.get(drillVal);
-        bb.position(0);
+        ((Buffer) bb).position(0);
         value = drillVal;
       } else if (!root && value instanceof CharSequence) {
         value = new Text(value.toString());
@@ -190,7 +191,7 @@ public class AvroTestUtil {
 
       for (int i = 0; i < numRecords; i++) {
         bb.put(1, (byte) ('0' + (i % 10)));
-        bb.position(0);
+        ((Buffer) bb).position(0);
         record.startRecord();
         record.put("a_string", "a_" + i);
         record.put("b_int", i);

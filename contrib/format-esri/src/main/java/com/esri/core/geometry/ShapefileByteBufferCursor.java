@@ -17,6 +17,7 @@
  */
 package com.esri.core.geometry;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -57,14 +58,14 @@ public class ShapefileByteBufferCursor extends ByteBufferCursor {
       fileBuffer.order(ByteOrder.LITTLE_ENDIAN);
       byte[] dstArr = new byte[contentLen];
 
-      fileBuffer.position(currOffset + 8); // skip record header
+      ((Buffer) fileBuffer).position(currOffset + 8); // skip record header
       fileBuffer.get(dstArr, 0, contentLen);
 
       shapeBuffer = ByteBuffer.wrap(dstArr);
       shapeBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
       int tmpPos = shapeBuffer.position();
-      shapeBuffer.position(tmpPos);
+      ((Buffer) shapeBuffer).position(tmpPos);
       currOffset = currOffset + 8 + contentLen; // skip rec header and go to next rec
     }
     return shapeBuffer;

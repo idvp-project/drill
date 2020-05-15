@@ -1004,7 +1004,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       assert dataBuffOff == totalDataLen;
 
       // Reset the byte buffer
-      buffer.clear();
+      ((Buffer) buffer).clear();
     }
 
     private void setOffsets(int[] lengths, int numValues, boolean hasNulls) {
@@ -1036,7 +1036,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         }
 
         // Update counters
-        offByteBuff.position(tgtPos);
+        ((Buffer) offByteBuff).position(tgtPos);
         remaining -= toCopy;
 
       } while (remaining > 0);

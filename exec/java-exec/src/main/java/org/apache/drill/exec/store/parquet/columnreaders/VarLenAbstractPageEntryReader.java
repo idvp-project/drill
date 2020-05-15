@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet.columnreaders;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import org.apache.drill.exec.store.parquet.columnreaders.VarLenColumnBulkInput.VarLenColumnBulkInputCallback;
 import org.apache.drill.exec.store.parquet.columnreaders.VarLenColumnBulkInput.ColumnPrecisionInfo;
@@ -72,13 +73,13 @@ abstract class VarLenAbstractPageEntryReader extends VarLenAbstractEntryReader {
     // means unread data will be loaded again but this time will be positioned in the beginning of the
     // buffer. This can happen only for the last entry in the buffer when either of its length or value
     // is incomplete.
-    buffer.clear();
+    ((Buffer) buffer).clear();
 
     int remaining = remainingPageData();
     int bufferCapacity = buffer.capacity() - VarLenBulkPageReader.PADDING;
     int toCopy = remaining > bufferCapacity ? bufferCapacity : remaining;
 
-    buffer.limit(toCopy); // Update the limit regardless to indicate the number of bytes available for reading
+    ((Buffer) buffer).limit(toCopy); // Update the limit regardless to indicate the number of bytes available for reading
 
     if (toCopy == 0) {
       return false;

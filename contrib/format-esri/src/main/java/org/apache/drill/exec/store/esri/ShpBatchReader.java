@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.regex.Matcher;
@@ -138,7 +139,7 @@ public class ShpBatchReader implements ManagedReader<FileSchemaNegotiator> {
       fileReaderShp.read(shpBuf);
 
       ByteBuffer byteBuffer = ByteBuffer.wrap(shpBuf);
-      byteBuffer.position(byteBuffer.position() + 100);
+      ((Buffer) byteBuffer).position(byteBuffer.position() + 100);
 
       ShapefileReader shpReader = new ShapefileReader();
       geomCursor = shpReader.getGeometryCursor(byteBuffer);

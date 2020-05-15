@@ -813,7 +813,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
           }
 
           // Update counters
-          buffer.position(maxTgtPos);
+          ((Buffer) buffer).position(maxTgtPos);
           remaining -= toCopy;
 
         } while (remaining > 0);

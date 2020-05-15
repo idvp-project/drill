@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.parquet.columnreaders;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -107,7 +108,7 @@ final class VarLenBulkPageReader {
     pageInfo.dictionaryValueReader = pageInfoInput.dictionaryValueReader;
     pageInfo.numPageValues = pageInfoInput.numPageValues;
     if (clear) {
-      buffer.clear();
+      ((Buffer) buffer).clear();
     }
   }
 

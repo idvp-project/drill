@@ -22,6 +22,7 @@ import static org.apache.drill.exec.memory.BoundsChecking.rangeCheck;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -205,7 +206,7 @@ final class TextInput {
    */
   private void updateBuffer() throws IOException {
     streamPos = seekable.getPos();
-    underlyingBuffer.clear();
+    ((Buffer) underlyingBuffer).clear();
 
     if (endFound) {
       length = -1;

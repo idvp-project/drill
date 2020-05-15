@@ -21,6 +21,7 @@ import static org.apache.parquet.column.Encoding.valueOf;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -510,12 +511,12 @@ class AsyncPageReader extends PageReader {
           Decompressor decompressor = codec.createDecompressor();
           decompressor.reset();
           byte[] inputBytes = new byte[compressedSize];
-          input.position(0);
+          ((Buffer) input).position(0);
           input.get(inputBytes);
           decompressor.setInput(inputBytes, 0, inputBytes.length);
           byte[] outputBytes = new byte[uncompressedSize];
           decompressor.decompress(outputBytes, 0, uncompressedSize);
-          output.clear();
+          ((Buffer) output).clear();
           output.put(outputBytes);
         }
       } else if (codecName == CompressionCodecName.SNAPPY) {
@@ -523,9 +524,9 @@ class AsyncPageReader extends PageReader {
         // of going thru the DirectDecompressor class.
         // The Snappy codec is itself thread safe, while going thru the DirectDecompressor path
         // seems to have concurrency issues.
-        output.clear();
+        ((Buffer) output).clear();
         int size = Snappy.uncompress(input, output);
-        output.limit(size);
+        ((Buffer) output).limit(size);
       } else {
         CodecFactory.BytesDecompressor decompressor = codecFactory.getDecompressor(parentColumnReader.columnChunkMetaData.getCodec());
         decompressor.decompress(input, compressedSize, output, uncompressedSize);

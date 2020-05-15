@@ -19,6 +19,7 @@ package org.apache.drill.exec.expr.fn.impl;
 
 import io.netty.buffer.DrillBuf;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -48,7 +49,7 @@ public class HashHelper {
       ByteBuffer finish = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
       // for big-endian version, use this first:
       // finish.position(4-buf.remaining());
-      finish.put(buf).rewind();
+      ((Buffer) finish.put(buf)).rewind();
       h ^= finish.getInt();
       h *= m;
     }

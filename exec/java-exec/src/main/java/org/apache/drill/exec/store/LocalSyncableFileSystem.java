@@ -29,6 +29,7 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import org.apache.commons.io.FileUtils;
@@ -212,11 +213,11 @@ public class LocalSyncableFileSystem extends FileSystem {
 
     @Override
     public int read(ByteBuffer buf) throws IOException {
-      buf.reset();
+      ((Buffer) buf).reset();
 
       if(buf.hasArray()){
         int read = read(buf.array(), buf.arrayOffset(), buf.capacity());
-        buf.limit(read);
+        ((Buffer) buf).limit(read);
         return read;
       }else{
         byte[] b = new byte[buf.capacity()];

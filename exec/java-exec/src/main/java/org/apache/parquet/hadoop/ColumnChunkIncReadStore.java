@@ -20,6 +20,7 @@ package org.apache.parquet.hadoop;
 import static org.apache.parquet.format.converter.ParquetMetadataConverter.fromParquetStatistics;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -164,7 +165,7 @@ public class ColumnChunkIncReadStore implements PageReadStore {
               lastPage = buf;
               ByteBuffer buffer = buf.nioBuffer(0, pageHeader.compressed_page_size);
               HadoopStreams.wrap(in).readFully(buffer);
-              buffer.flip();
+              ((Buffer) buffer).flip();
               return new DataPageV1(
                       decompressor.decompress(BytesInput.from(buffer), pageHeader.getUncompressed_page_size()),
                       pageHeader.data_page_header.num_values,
@@ -181,7 +182,7 @@ public class ColumnChunkIncReadStore implements PageReadStore {
               lastPage = buf;
               buffer = buf.nioBuffer(0, pageHeader.compressed_page_size);
               HadoopStreams.wrap(in).readFully(buffer);
-              buffer.flip();
+              ((Buffer) buffer).flip();
               DataPageHeaderV2 dataHeaderV2 = pageHeader.getData_page_header_v2();
               int dataSize = compressedPageSize - dataHeaderV2.getRepetition_levels_byte_length() - dataHeaderV2.getDefinition_levels_byte_length();
               BytesInput decompressedPageData =
@@ -190,13 +191,13 @@ public class ColumnChunkIncReadStore implements PageReadStore {
                       pageHeader.uncompressed_page_size);
               ByteBuffer byteBuffer = decompressedPageData.toByteBuffer();
               int limit = byteBuffer.limit();
-              byteBuffer.limit(dataHeaderV2.getRepetition_levels_byte_length());
+              ((Buffer) byteBuffer).limit(dataHeaderV2.getRepetition_levels_byte_length());
               BytesInput repetitionLevels = BytesInput.from(byteBuffer.slice());
-              byteBuffer.position(dataHeaderV2.getRepetition_levels_byte_length());
-              byteBuffer.limit(dataHeaderV2.getRepetition_levels_byte_length() + dataHeaderV2.getDefinition_levels_byte_length());
+              ((Buffer) byteBuffer).position(dataHeaderV2.getRepetition_levels_byte_length());
+              ((Buffer) byteBuffer).limit(dataHeaderV2.getRepetition_levels_byte_length() + dataHeaderV2.getDefinition_levels_byte_length());
               BytesInput definitionLevels = BytesInput.from(byteBuffer.slice());
-              byteBuffer.position(dataHeaderV2.getRepetition_levels_byte_length() + dataHeaderV2.getDefinition_levels_byte_length());
-              byteBuffer.limit(limit);
+              ((Buffer) byteBuffer).position(dataHeaderV2.getRepetition_levels_byte_length() + dataHeaderV2.getDefinition_levels_byte_length());
+              ((Buffer) byteBuffer).limit(limit);
               BytesInput data = BytesInput.from(byteBuffer.slice());
 
               return new DataPageV2(

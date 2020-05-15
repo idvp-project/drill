@@ -877,7 +877,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       byte[] bufferArray = buffer.array();
 
       writeInt(value, bufferArray, tgtPos);
-      buffer.position(tgtPos + 4);
+      ((Buffer) buffer).position(tgtPos + 4);
     }
 
     public void setSafe(int[] values, int numValues) {
@@ -898,7 +898,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
         }
 
         // Update counters
-        buffer.position(tgtPos);
+        ((Buffer) buffer).position(tgtPos);
         remaining -= toCopy;
 
       } while (remaining > 0);
@@ -968,7 +968,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       currentIdx += numElements;
 
       // Reset the byte buffer
-      buffer.clear();
+      ((Buffer) buffer).clear();
     }
   }
   </#if> <#-- minor.class -->

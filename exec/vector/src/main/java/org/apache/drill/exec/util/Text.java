@@ -19,6 +19,7 @@ package org.apache.drill.exec.util;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -150,24 +151,24 @@ public class Text {
       ByteBuffer src = ByteBuffer.wrap(this.bytes, 0, this.length);
       ByteBuffer tgt = encode(what);
       byte b = tgt.get();
-      src.position(start);
+      ((Buffer) src).position(start);
 
       while (src.hasRemaining()) {
         if (b == src.get()) { // matching first byte
-          src.mark(); // save position in loop
-          tgt.mark(); // save position in target
+          ((Buffer) src).mark(); // save position in loop
+          ((Buffer) tgt).mark(); // save position in target
           boolean found = true;
           int pos = src.position() - 1;
           while (tgt.hasRemaining()) {
             if (!src.hasRemaining()) { // src expired first
-              tgt.reset();
-              src.reset();
+              ((Buffer) tgt).reset();
+              ((Buffer) src).reset();
               found = false;
               break;
             }
             if (!(tgt.get() == src.get())) {
-              tgt.reset();
-              src.reset();
+              ((Buffer) tgt).reset();
+              ((Buffer) src).reset();
               found = false;
               break; // no match
             }
@@ -532,9 +533,9 @@ public class Text {
    * mark set on this buffer will be changed by this method!
    */
   public static int bytesToCodePoint(ByteBuffer bytes) {
-    bytes.mark();
+    ((Buffer) bytes).mark();
     byte b = bytes.get();
-    bytes.reset();
+    ((Buffer) bytes).reset();
     int extraBytesToRead = bytesFromUTF8[(b & 0xFF)];
     if (extraBytesToRead < 0)
     {
