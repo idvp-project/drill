@@ -54,6 +54,7 @@ import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
+import org.apache.kudu.client.AsyncKuduScanner;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduScanner.KuduScannerBuilder;
@@ -116,6 +117,8 @@ public class KuduRecordReader extends AbstractRecordReader {
         KuduScanner scanner = builder
                 .lowerBoundRaw(scanSpec.getStartKey())
                 .exclusiveUpperBoundRaw(scanSpec.getEndKey())
+                .readMode(AsyncKuduScanner.ReadMode.READ_AT_SNAPSHOT)
+                .setFaultTolerant(true)
                 .build();
         iterator = scanner.iterator();
       } finally {
