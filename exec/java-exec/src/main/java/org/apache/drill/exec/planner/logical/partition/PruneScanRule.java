@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
