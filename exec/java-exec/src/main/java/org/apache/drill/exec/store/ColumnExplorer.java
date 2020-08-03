@@ -36,6 +36,9 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.util.Utilities;
+import org.apache.drill.shaded.guava.com.google.common.cache.CacheBuilder;
+import org.apache.drill.shaded.guava.com.google.common.cache.CacheLoader;
+import org.apache.drill.shaded.guava.com.google.common.cache.LoadingCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -53,6 +56,15 @@ public class ColumnExplorer {
   private final Map<String, ImplicitInternalFileColumns> allInternalColumns;
   private final Map<String, ImplicitFileColumns> selectedImplicitColumns;
   private final Map<String, ImplicitInternalFileColumns> selectedInternalColumns;
+
+  private static final LoadingCache<String, Pattern> patterns = CacheBuilder.newBuilder()
+      .maximumSize(16)
+      .build(new CacheLoader<String, Pattern>() {
+        @Override
+        public Pattern load(final String designator) {
+          return Pattern.compile(Pattern.quote(designator) + "\\d+", Pattern.CASE_INSENSITIVE);
+        }
+      });
 
   /**
    * Helper class that encapsulates logic for sorting out columns
@@ -158,7 +170,7 @@ public class ColumnExplorer {
    * @return true if given column is partition, false otherwise
    */
   public static boolean isPartitionColumn(String partitionDesignator, String path) {
-    Pattern pattern = Pattern.compile(String.format("%s[0-9]+", partitionDesignator));
+    Pattern pattern = patterns.getUnchecked(partitionDesignator);
     Matcher matcher = pattern.matcher(path);
     return matcher.matches();
   }
