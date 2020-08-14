@@ -88,6 +88,7 @@ public class Metadata {
   public static final String METADATA_DIRECTORIES_FILENAME = ".drill.parquet_metadata_directories";
   public static final String METADATA_FILENAME = ".drill.parquet_file_metadata.v4";
   public static final String METADATA_SUMMARY_FILENAME = ".drill.parquet_summary_metadata.v4";
+  public static final String METADATA_TIMESTAMP_FILENAME = ".drill.metadata.timestamp";
   public static final String[] CURRENT_METADATA_FILENAMES = {METADATA_SUMMARY_FILENAME, METADATA_FILENAME};
   public static final Long DEFAULT_NULL_COUNT = 0L;
   public static final Long NULL_COUNT_NOT_EXISTS = -1L;
@@ -542,6 +543,8 @@ public class Metadata {
     mapper.writerWithDefaultPrettyPrinter().writeValue(os, parquetMetadata);
     os.flush();
     os.close();
+
+    renewMetadataTimestamp(p, fs);
   }
 
   /**
@@ -760,7 +763,7 @@ public class Metadata {
                                 MetadataContext metaContext, FileSystem fs) throws IOException {
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
     metaContext.setStatus(parentDir);
-    long metaFileModifyTime = fs.getFileStatus(metaFilePath).getModificationTime();
+    long metaFileModifyTime = readMetadataTimestamp(metaFilePath, fs);
     FileStatus directoryStatus = fs.getFileStatus(parentDir);
     int numDirs = 1;
     if (directoryStatus.getModificationTime() > metaFileModifyTime) {
@@ -787,5 +790,26 @@ public class Metadata {
       timer.stop();
     }
     return isModified;
+  }
+
+  private long readMetadataTimestamp(Path p, FileSystem fs) throws IOException {
+    Path metaTimestampFile = new Path(p.getParent(), METADATA_TIMESTAMP_FILENAME);
+    try {
+      if (fs.exists(metaTimestampFile)) {
+        return fs.getFileStatus(metaTimestampFile).getModificationTime();
+      }
+    } catch (IOException e) {
+      logger.error("Cannot read timestamp metadata file", e);
+    }
+
+    return fs.getFileStatus(p).getModificationTime();
+  }
+
+  private void renewMetadataTimestamp(Path p, FileSystem fs) {
+    try {
+      fs.create(new Path(p.getParent(), METADATA_TIMESTAMP_FILENAME), true).close();
+    } catch (IOException e) {
+      logger.error("Cannot renew timestamp metadata file", e);
+    }
   }
 }
