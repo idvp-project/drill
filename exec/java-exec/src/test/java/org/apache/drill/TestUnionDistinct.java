@@ -389,7 +389,7 @@ public class TestUnionDistinct extends BaseTestQuery {
   @Test(expected = UserException.class)
   public void testUnionDistinctImplicitCastingFailure() throws Exception {
     test("(select key from cp.`store/json/intData.json` " +
-      "union select key from cp.`store/json/booleanData.json` )");
+      "union select key from cp.`store/json/timeStmpData.json` )");
   }
 
   @Test

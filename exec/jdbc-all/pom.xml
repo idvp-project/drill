@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.apache.drill.exec</groupId>
     <artifactId>exec-parent</artifactId>
-    <version>1.17.0</version>
+    <version>1.17.0-0.5.7</version>
   </parent>
 
   <artifactId>drill-jdbc-all</artifactId>
@@ -300,7 +300,6 @@
               <include>*:*</include>
             </includes>
             <excludes>
-              <exclude>io.protostuff:*</exclude>
               <exclude>${calcite.groupId}:calcite-core</exclude>
               <exclude>${calcite.groupId}:calcite-linq4j</exclude>
               <exclude>org.pentaho:*</exclude>
@@ -491,7 +490,6 @@
                <exclude>org/apache/hadoop/tracing/**</exclude>
                <exclude>org/apache/hadoop/tools/**</exclude>
                <exclude>org/apache/hadoop/yarn/**</exclude>
-               <exclude>org/apache/commons/pool2/**</exclude>
                <exclude>org/apache/http/**</exclude>
                <exclude>org/apache/directory/**</exclude>
                <exclude>org/apache/drill/metastore/**</exclude>
@@ -630,7 +628,6 @@
                   </includes>
                   <excludes>
                     <exclude>org.slf4j:jcl-over-slf4j</exclude>
-                    <exclude>io.protostuff:*</exclude>
                     <exclude>${calcite.groupId}:calcite-core</exclude>
                     <exclude>${calcite.groupId}:calcite-linq4j</exclude>
                     <exclude>org.pentaho:*</exclude>
@@ -808,7 +805,6 @@
                       <exclude>org/apache/drill/exec/work/**</exclude>
                       <exclude>org/apache/drill/metastore/**</exclude>
                       <exclude>org/apache/hadoop/**</exclude>
-                      <exclude>org/apache/commons/pool2/**</exclude>
                       <exclude>org/apache/http/**</exclude>
                       <exclude>org/apache/directory/**</exclude>
                       <exclude>com/jcraft/**</exclude>

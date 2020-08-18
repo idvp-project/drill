@@ -39,9 +39,9 @@ public class PrintingResultsListener extends LoggingResultsListener {
   }
 
   @Override
-  public void queryCompleted(UserBitShared.QueryResult.QueryState state) {
+  public void queryCompleted(UserBitShared.QueryResult.QueryState state, UserBitShared.QueryProfile profile) {
     PrintingUtils.print(() -> {
-      super.queryCompleted(state);
+      super.queryCompleted(state, profile);
       return null;
     });
   }

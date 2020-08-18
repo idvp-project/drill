@@ -105,6 +105,24 @@ SqlNode SqlShowSchemas() :
 }
 
 /**
+* Parses statement
+*   SHOW PLUGIN name
+*/
+SqlNode SqlShowPlugin() :
+{
+    SqlParserPos pos;
+    SqlIdentifier name;
+}
+{
+    <SHOW> { pos = getPos(); }
+    <PLUGIN>
+    name = SimpleIdentifier()
+    {
+        return new SqlShowPlugin(pos, name);
+    }
+}
+
+/**
  * Parses statement
  *   { DESCRIBE | DESC } [TABLE] tblname [col_name | wildcard ]
  */
@@ -211,12 +229,20 @@ SqlNode SqlCreateOrReplace() :
             }
     |
         <SCHEMA>
-             {
-                 if (isTemporary) {
-                     throw new ParseException("Create schema statement does not allow <TEMPORARY> keyword.");
-                 }
-                 return SqlCreateSchema(pos, createType);
-             }
+            {
+                if (isTemporary) {
+                    throw new ParseException("Create schema statement does not allow <TEMPORARY> keyword.");
+                }
+                return SqlCreateSchema(pos, createType);
+            }
+    |
+        <PLUGIN>
+            {
+                if (isTemporary) {
+                    throw new ParseException("Create storage statement does not allow <TEMPORARY> keyword.");
+                }
+                return SqlCreatePlugin(pos, createType);
+            }
     )
 }
 
@@ -354,6 +380,34 @@ SqlNode SqlCreateSchema(SqlParserPos pos, String createType) :
 }
 
 /**
+* Parses a create view or replace existing view statement.
+* after CREATE OR REPLACE PLUGIN statement which is handled in the SqlCreateOrReplace method.
+*
+* CREATE { [OR REPLACE] PLUGIN | PLUGIN [IF NOT EXISTS] | PLUGIN } storage_name USING 'json convfig'
+*/
+SqlNode SqlCreatePlugin(SqlParserPos pos, String createType) :
+{
+    SqlIdentifier name;
+    SqlNode configuration;
+}
+{
+    [
+        <IF> <NOT> <EXISTS> {
+            if (createType == "OR_REPLACE") {
+                throw new ParseException("Create storage statement cannot have both <OR REPLACE> and <IF NOT EXISTS> clause");
+            }
+            createType = "IF_NOT_EXISTS";
+        }
+    ]
+    name = SimpleIdentifier()
+    <USING>
+    configuration = StringLiteral()
+    {
+        return new SqlCreatePlugin(pos, name, SqlLiteral.createCharString(createType, getPos()), configuration);
+    }
+}
+
+/**
 * Helper method to add string literals divided by equals into SqlNodeList.
 */
 void addProperty(SqlNodeList properties) :
@@ -405,6 +459,11 @@ SqlNode SqlDrop() :
         <SCHEMA>
         {
             return SqlDropSchema(pos);
+        }
+    |
+        <PLUGIN>
+        {
+            return SqlDropStorage(pos);
         }
     )
 }
@@ -462,6 +521,26 @@ SqlNode SqlDropSchema(SqlParserPos pos) :
         return new SqlSchema.Drop(pos, table, SqlLiteral.createBoolean(existenceCheck, getPos()));
     }
 }
+
+/**
+* Parses drop schema or drop schema if exists statement
+* after DROP SCHEMA statement which is handled in SqlDrop method.
+*
+* DROP SCHEMA [IF EXISTS]
+* FOR TABLE dfs.my_table
+*/
+SqlNode SqlDropStorage(SqlParserPos pos) :
+{
+    SqlIdentifier table = null;
+    boolean existenceCheck = false;
+}
+{
+    [ <IF> <EXISTS> { existenceCheck = true; } ]
+    {
+        return new SqlDropPlugin(pos, SimpleIdentifier(), existenceCheck);
+    }
+}
+
 
 /**
  * Parse refresh table metadata statement.

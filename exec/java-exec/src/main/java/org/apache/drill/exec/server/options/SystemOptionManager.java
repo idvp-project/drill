@@ -220,6 +220,7 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
       new OptionDefinition(ExecConstants.QUEUE_THRESHOLD_SIZE),
       new OptionDefinition(ExecConstants.QUEUE_TIMEOUT),
       new OptionDefinition(ExecConstants.SMALL_QUEUE_SIZE),
+      new OptionDefinition(ExecConstants.NESTED_QUEUE_SIZE),
       new OptionDefinition(ExecConstants.QUEUE_MEMORY_RESERVE, new OptionMetaData(OptionValue.AccessibleScopes.SYSTEM, true, false)),
       new OptionDefinition(ExecConstants.QUEUE_MEMORY_RATIO, new OptionMetaData(OptionValue.AccessibleScopes.SYSTEM, true, false)),
       new OptionDefinition(ExecConstants.MIN_HASH_TABLE_SIZE),

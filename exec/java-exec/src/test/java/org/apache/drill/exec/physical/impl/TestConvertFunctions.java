@@ -263,6 +263,35 @@ public class TestConvertFunctions extends BaseTestQuery {
   }
 
   @Test
+  public void testConvertFromJsonNullableInputAllTextMode() throws Exception {
+    // Contents of the generated file:
+    /*
+      {"k": "{a: 1, b: 2}"}
+      {"k": null}
+      {"k": "{c: 3}"}
+     */
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(
+            new File(dirTestWatcher.getRootDir(), "nullable_json_strings.json")))) {
+      String[] fieldValue = {"\"{a: 1, b: 2}\"", null, "\"{c: 3}\""};
+      for (String value : fieldValue) {
+        String entry = String.format("{\"k\": %s}\n", value);
+        writer.write(entry);
+      }
+    }
+
+    testBuilder()
+            .sqlQuery("select convert_from(k, 'json') as col from dfs.`nullable_json_strings.json`")
+            .optionSettingQueriesForTestQuery("alter session set `store.json.all_text_mode` = true")
+            .unOrdered()
+            .baselineColumns("col")
+            .baselineValues(mapOf("a", "1", "b", "2"))
+            .baselineValues(mapOf())
+            .baselineValues(mapOf("c", "3"))
+            .go();
+    test("alter session set `store.json.all_text_mode` = false");
+  }
+
+  @Test
   public void testConvertToComplexJSON() throws Exception {
 
     String result1 =
@@ -615,6 +644,11 @@ public class TestConvertFunctions extends BaseTestQuery {
       resetSessionOption(ExecConstants.SCALAR_REPLACEMENT_OPTION);
       resetSessionOption(ClassCompilerSelector.JAVA_COMPILER_OPTION);
     }
+  }
+
+  @Test // DRILL-7773
+  public void testTimeEpochBE() throws Throwable {
+    verifyPhysicalPlan("cast(convert_from(convert_to('23:30:21', 'TIME_EPOCH_BE'), 'TIME_EPOCH_BE') as time)", LocalTime.of(23, 30, 21));
   }
 
   protected <T> void verifySQL(String sql, T expectedResults) throws Throwable {

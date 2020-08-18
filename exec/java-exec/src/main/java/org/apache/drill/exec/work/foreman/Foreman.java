@@ -252,10 +252,10 @@ public class Foreman implements Runnable {
       queryStateProcessor.addToEventQueue(QueryState.FAILED, e);
     }
 
-    queryText = queryRequest.getPlan();
-    queryStateProcessor.moveToState(QueryState.PLANNING, null);
-
     try {
+      queryText = queryRequest.getPlan();
+      queryStateProcessor.moveToState(QueryState.PLANNING, null);
+
       injector.injectChecked(queryContext.getExecutionControls(), "run-try-beginning", ForemanException.class);
 
       // convert a run query request into action
@@ -776,7 +776,8 @@ public class Foreman implements Runnable {
        */
       final QueryResult.Builder resultBuilder = QueryResult.newBuilder()
           .setQueryId(queryId)
-          .setQueryState(resultState);
+          .setQueryState(resultState)
+          .setProfile(queryManager.getQueryProfile());
       final UserException uex;
       if (resultException != null) {
         final boolean verbose = queryContext.getOptions().getOption(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY).bool_val;

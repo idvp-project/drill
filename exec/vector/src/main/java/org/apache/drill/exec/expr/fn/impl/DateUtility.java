@@ -37,6 +37,8 @@ import com.carrotsearch.hppc.ObjectIntHashMap;
  */
 
 public class DateUtility {
+  // Required for internal use in Data 0.4.0
+  public final static boolean ISO_DATE_TIME = true;
 
   /* We have a hashmap that stores the timezone as the key and an index as the value
    * While storing the timezone in value vectors, holders we only use this index. As we
@@ -676,16 +678,35 @@ public class DateUtility {
 
     if (dateTimeTZFormat == null) {
       DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-      DateTimeFormatter optionalTime = DateTimeFormatter.ofPattern(" HH:mm:ss");
-      DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
       DateTimeFormatter optionalZone = DateTimeFormatter.ofPattern(" ZZZ");
 
+      DateTimeFormatter sqlFormatter = new DateTimeFormatterBuilder()
+              .append(dateFormatter)
+              .appendOptional(DateTimeFormatter.ISO_LOCAL_TIME)
+              .appendOptional(optionalZone)
+              .toFormatter();
+
+      DateTimeFormatter sqlZonedFormatter = new DateTimeFormatterBuilder()
+              .append(dateFormatter)
+              .appendLiteral(' ')
+              .append(DateTimeFormatter.ISO_LOCAL_TIME)
+              .append(optionalZone)
+              .toFormatter();
+
+      DateTimeFormatter sqlLocalFormatter = new DateTimeFormatterBuilder()
+              .append(dateFormatter)
+              .appendLiteral(' ')
+              .append(DateTimeFormatter.ISO_LOCAL_TIME)
+              .toFormatter();
+
       dateTimeTZFormat = new DateTimeFormatterBuilder().parseLenient()
-          .append(dateFormatter)
-          .appendOptional(optionalTime)
-          .appendOptional(optionalSec)
-          .appendOptional(optionalZone)
-          .toFormatter();
+              .appendOptional(sqlZonedFormatter)
+              .appendOptional(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+              .appendOptional(sqlLocalFormatter)
+              .appendOptional(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+              .appendOptional(sqlFormatter)
+              .toFormatter();
+
     }
 
     return dateTimeTZFormat;

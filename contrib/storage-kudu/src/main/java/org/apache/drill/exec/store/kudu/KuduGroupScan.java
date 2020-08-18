@@ -49,6 +49,7 @@ import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.CompleteWork;
 import org.apache.drill.exec.store.schedule.EndpointByteMap;
 import org.apache.drill.exec.store.schedule.EndpointByteMapImpl;
+import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.LocatedTablet;
 import org.apache.kudu.client.LocatedTablet.Replica;
 
@@ -93,7 +94,8 @@ public class KuduGroupScan extends AbstractGroupScan {
       endpointMap.put(endpoint.getAddress(), endpoint);
     }
     try {
-      List<LocatedTablet> locations = kuduStoragePlugin.getClient().openTable(tableName).getTabletsLocations(10000);
+      KuduTable kuduTable = kuduStoragePlugin.getClient().openTable(tableName);
+      List<LocatedTablet> locations = kuduTable.getTabletsLocations(10000);
       for (LocatedTablet tablet : locations) {
         KuduWork work = new KuduWork(tablet.getPartition().getPartitionKeyStart(), tablet.getPartition().getPartitionKeyEnd());
         for (Replica replica : tablet.getReplicas()) {
@@ -112,9 +114,9 @@ public class KuduGroupScan extends AbstractGroupScan {
 
   private static class KuduWork implements CompleteWork {
 
-    private EndpointByteMapImpl byteMap = new EndpointByteMapImpl();
-    private byte[] partitionKeyStart;
-    private byte[] partitionKeyEnd;
+    private final EndpointByteMapImpl byteMap = new EndpointByteMapImpl();
+    private final byte[] partitionKeyStart;
+    private final byte[] partitionKeyEnd;
 
     public KuduWork(byte[] partitionKeyStart, byte[] partitionKeyEnd) {
       this.partitionKeyStart = partitionKeyStart;

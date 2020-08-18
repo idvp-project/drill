@@ -84,6 +84,7 @@ public final class ExecConstants {
 
   public static final String SPILL_FILESYSTEM = "drill.exec.spill.fs";
   public static final String SPILL_DIRS = "drill.exec.spill.directories";
+  public static final String SPILL_COMPRESSION = "drill.exec.spill.compression";
 
   public static final String OUTPUT_BATCH_SIZE = "drill.exec.memory.operator.output_batch_size";
   // Output Batch Size in Bytes. We have a small lower bound so we can test with unit tests without the
@@ -103,6 +104,7 @@ public final class ExecConstants {
   public static final String EXTERNAL_SORT_SPILL_THRESHOLD = "drill.exec.sort.external.spill.threshold";
   public static final String EXTERNAL_SORT_SPILL_DIRS = "drill.exec.sort.external.spill.directories";
   public static final String EXTERNAL_SORT_SPILL_FILESYSTEM = "drill.exec.sort.external.spill.fs";
+  public static final String EXTERNAL_SORT_SPILL_COMPRESSION = "drill.exec.sort.external.spill.compression";
   public static final String EXTERNAL_SORT_SPILL_FILE_SIZE = "drill.exec.sort.external.spill.file_size";
   public static final String EXTERNAL_SORT_MSORT_MAX_BATCHSIZE = "drill.exec.sort.external.msort.batch.maxsize";
   public static final String EXTERNAL_SORT_DISABLE_MANAGED = "drill.exec.sort.external.disable_managed";
@@ -144,6 +146,7 @@ public final class ExecConstants {
       new OptionDescription("Enforces the maximum memory limit for the Hash Join operator (if non-zero); used for testing purposes. Default is 0 (disabled)."));
   public static final String HASHJOIN_SPILL_DIRS = "drill.exec.hashjoin.spill.directories";
   public static final String HASHJOIN_SPILL_FILESYSTEM = "drill.exec.hashjoin.spill.fs";
+  public static final String HASHJOIN_SPILL_COMPRESSION = "drill.exec.hashjoin.spill.compression";
   public static final String HASHJOIN_FALLBACK_ENABLED_KEY = "drill.exec.hashjoin.fallback.enabled";
   public static final BooleanValidator HASHJOIN_FALLBACK_ENABLED_VALIDATOR = new BooleanValidator(HASHJOIN_FALLBACK_ENABLED_KEY,
       new OptionDescription("Hash Joins ignore memory limits when this option is enabled (true). When disabled (false), Hash Joins fail when memory is set too low."));
@@ -182,6 +185,7 @@ public final class ExecConstants {
 
   public static final String HASHAGG_SPILL_DIRS = "drill.exec.hashagg.spill.directories";
   public static final String HASHAGG_SPILL_FILESYSTEM = "drill.exec.hashagg.spill.fs";
+  public static final String HASHAGG_SPILL_COMPRESSION = "drill.exec.hashagg.spill.compression";
   public static final String HASHAGG_FALLBACK_ENABLED_KEY = "drill.exec.hashagg.fallback.enabled";
   public static final BooleanValidator HASHAGG_FALLBACK_ENABLED_VALIDATOR = new BooleanValidator(HASHAGG_FALLBACK_ENABLED_KEY,
       new OptionDescription("Hash Aggregates ignore memory limits when enabled (true). When disabled (false), Hash Aggregates fail when memory is set too low."));
@@ -725,9 +729,11 @@ public final class ExecConstants {
   public static final BooleanValidator ENABLE_QUEUE = new BooleanValidator("exec.queue.enable",
       new OptionDescription("Changes the state of query queues. False allows unlimited concurrent queries."));
   public static final LongValidator LARGE_QUEUE_SIZE = new PositiveLongValidator("exec.queue.large", 10_000,
-      new OptionDescription("Sets the number of large queries that can run concurrently in the cluster. Range: 0-1000"));
+      new OptionDescription("Sets the number of large queries that can run concurrently in the cluster. Range: 0-10000"));
   public static final LongValidator SMALL_QUEUE_SIZE = new PositiveLongValidator("exec.queue.small", 100_000,
-      new OptionDescription("Sets the number of small queries that can run concurrently in the cluster. Range: 0-1001"));
+      new OptionDescription("Sets the number of small queries that can run concurrently in the cluster. Range: 0-100000"));
+  public static final LongValidator NESTED_QUEUE_SIZE = new PositiveLongValidator("exec.queue.nested", 100_000,
+          new OptionDescription("Sets the number of nested queries that can run concurrently in the cluster. Range: 0-100000"));
   public static final LongValidator QUEUE_THRESHOLD_SIZE = new PositiveLongValidator("exec.queue.threshold", Long.MAX_VALUE,
       new OptionDescription("Sets the cost threshold, which depends on the complexity of the queries in queue, for determining whether query is large or small. Complex queries have higher thresholds. Range: 0-9223372036854775807"));
   public static final LongValidator QUEUE_TIMEOUT = new PositiveLongValidator("exec.queue.timeout_millis", Long.MAX_VALUE,

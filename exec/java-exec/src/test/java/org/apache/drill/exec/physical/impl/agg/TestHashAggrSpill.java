@@ -38,6 +38,7 @@ import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.QueryBuilder;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -59,7 +60,7 @@ public class TestHashAggrSpill extends DrillTest {
    *  A template for Hash Aggr spilling tests
    */
   private void testSpill(long maxMem, long numPartitions, long minBatches, int maxParallel, boolean fallback, boolean predict,
-                         String sql, long expectedRows, int cycle, int fromPart, int toPart) throws Exception {
+                         String sql, long expectedRows, int cycle, int fromPart, int toPart, String compression) throws Exception {
     ClusterFixtureBuilder builder = ClusterFixture.builder(dirTestWatcher)
       .sessionOption(ExecConstants.HASHAGG_MAX_MEMORY_KEY,maxMem)
       .sessionOption(ExecConstants.HASHAGG_NUM_PARTITIONS_KEY,numPartitions)
@@ -70,6 +71,10 @@ public class TestHashAggrSpill extends DrillTest {
       .sessionOption(ExecConstants.HASHAGG_USE_MEMORY_PREDICTION_KEY,predict)
       .maxParallelization(maxParallel)
       .saveProfiles();
+    if (compression != null) {
+      builder.configProperty(ExecConstants.HASHAGG_SPILL_COMPRESSION, compression);
+    }
+
     String sqlStr = sql != null ? sql :  // if null then use this default query
       "SELECT empid_s17, dept_i, branch_i, AVG(salary_i) FROM `mock`.`employee_2400K` GROUP BY empid_s17, dept_i, branch_i";
 
@@ -78,7 +83,6 @@ public class TestHashAggrSpill extends DrillTest {
       runAndDump(client, sqlStr, expectedRows, cycle, fromPart, toPart);
     }
   }
-
   /**
    * Test "normal" spilling: Only 2 (or 3) partitions (out of 4) would require spilling
    * ("normal spill" means spill-cycle = 1 )
@@ -86,7 +90,42 @@ public class TestHashAggrSpill extends DrillTest {
   @Test
   public void testSimpleHashAggrSpill() throws Exception {
     testSpill(68_000_000, 16, 2, 2, false, true, null,
-        DEFAULT_ROW_COUNT, 1,2, 3);
+            DEFAULT_ROW_COUNT, 1,2, 3, null);
+  }
+
+  /**
+   * Test "normal" spilling with snappy compression: Only 2 (or 3) partitions (out of 4) would require spilling
+   * ("normal spill" means spill-cycle = 1 )
+   */
+  @Test
+  public void testSimpleHashAggrSpillSnappy() throws Exception {
+    testSpill(68_000_000, 16, 2, 2, false, true, null,
+            DEFAULT_ROW_COUNT, 1,2, 3, "snappy");
+  }
+
+  /**
+   * Test "normal" spilling with gzip compression: Only 2 (or 3) partitions (out of 4) would require spilling
+   * ("normal spill" means spill-cycle = 1 )
+   */
+  @Test
+  public void testSimpleHashAggrSpillGzip() throws Exception {
+    testSpill(68_000_000, 16, 2, 2, false, true, null,
+            DEFAULT_ROW_COUNT, 1,2, 3, "gzip");
+  }
+
+  /**
+   * Test "normal" spilling with gzip compression: Only 2 (or 3) partitions (out of 4) would require spilling
+   * ("normal spill" means spill-cycle = 1 )
+   */
+  @Test
+  public void testSimpleHashAggrSpillUnknown() {
+    try {
+      testSpill(68_000_000, 16, 2, 2, false, true, null,
+              DEFAULT_ROW_COUNT, 1, 2, 3, "unknown");
+      Assert.fail("Query should have failed!"); // should fail
+    } catch (Exception e) {
+      // do nothing
+    }
   }
 
   /**
@@ -97,7 +136,7 @@ public class TestHashAggrSpill extends DrillTest {
   @Ignore("DRILL-7301")
   public void testNoPredictHashAggrSpill() throws Exception {
     testSpill(135_000_000, 16, 2, 2, false, false /* no prediction */, null,
-        DEFAULT_ROW_COUNT, 1, 1, 1);
+        DEFAULT_ROW_COUNT, 1, 1, 1, null);
   }
 
   private void runAndDump(ClientFixture client, String sql, long expectedRows, long spillCycle, long fromSpilledPartitions, long toSpilledPartitions) throws Exception {
@@ -128,7 +167,7 @@ public class TestHashAggrSpill extends DrillTest {
 
     testSpill(58_000_000, 16, 3, 1, false, true,
         "SELECT empid_s44, dept_i, branch_i, AVG(salary_i) FROM `mock`.`employee_1100K` GROUP BY empid_s44, dept_i, branch_i",
-        1_100_000, 3, 2, 2);
+        1_100_000, 3, 2, 2, null);
   }
 
   /**
@@ -140,7 +179,7 @@ public class TestHashAggrSpill extends DrillTest {
 
     try {
       testSpill(34_000_000, 4, 5, 2, false /* no fallback */, true, null,
-          DEFAULT_ROW_COUNT, 0 /* no spill due to fallback to pre-1.11 */, 0, 0);
+          DEFAULT_ROW_COUNT, 0 /* no spill due to fallback to pre-1.11 */, 0, 0, null);
       fail(); // in case the above test did not throw
     } catch (Exception ex) {
       assertTrue(ex instanceof UserRemoteException);
@@ -158,6 +197,6 @@ public class TestHashAggrSpill extends DrillTest {
   @Test
   public void testHashAggrSuccessWithFallbackEnabled() throws Exception {
     testSpill(34_000_000, 4, 5, 2, true /* do fallback */, true, null,
-        DEFAULT_ROW_COUNT, 0 /* no spill due to fallback to pre-1.11 */, 0, 0);
+        DEFAULT_ROW_COUNT, 0 /* no spill due to fallback to pre-1.11 */, 0, 0, null);
   }
 }

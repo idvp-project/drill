@@ -62,6 +62,8 @@ public class Cast${type.from}${type.to} implements DrillSimpleFunc {
       carry = (int) java.lang.Math.signum(digit);
     }
     out.value = (${type.explicit}) (in.value + carry);
+    <#elseif type.to.endsWith("Bit")>
+    out.value = org.apache.drill.common.types.BooleanType.get((int) in.value).getNumericValue();
     <#elseif type.explicit??>
     out.value = (${type.explicit}) in.value;
     <#else>

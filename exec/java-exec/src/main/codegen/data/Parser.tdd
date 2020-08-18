@@ -45,12 +45,14 @@
     "SAMPLE",
     "COLUMNS",
     "REMOVE"
+    "PLUGIN"
   ]
 
   # List of methods for parsing custom SQL statements.
   statementParserMethods: [
     "SqlShowTables()",
     "SqlShowSchemas()",
+    "SqlShowPlugin()",
     "SqlDescribeSchema()"
     "SqlDescribeTable()",
     "SqlUseSchema()",

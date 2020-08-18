@@ -1362,6 +1362,9 @@ public final class SchemaUserBitShared
                 for(org.apache.drill.exec.proto.UserBitShared.DrillPBError error : message.getErrorList())
                     output.writeObject(3, error, org.apache.drill.exec.proto.SchemaUserBitShared.DrillPBError.WRITE, true);
 
+                if(message.hasProfile())
+                    output.writeObject(255, message.getProfile(), org.apache.drill.exec.proto.SchemaUserBitShared.QueryProfile.WRITE, false);
+
             }
             public boolean isInitialized(org.apache.drill.exec.proto.UserBitShared.QueryResult message)
             {
@@ -1412,6 +1415,10 @@ public final class SchemaUserBitShared
                             builder.addError(input.mergeObject(org.apache.drill.exec.proto.UserBitShared.DrillPBError.newBuilder(), org.apache.drill.exec.proto.SchemaUserBitShared.DrillPBError.MERGE));
 
                             break;
+                        case 255:
+                            builder.setProfile(input.mergeObject(org.apache.drill.exec.proto.UserBitShared.QueryProfile.newBuilder(), org.apache.drill.exec.proto.SchemaUserBitShared.QueryProfile.MERGE));
+
+                            break;
                         default:
                             input.handleUnknownField(number, this);
                     }
@@ -1455,6 +1462,7 @@ public final class SchemaUserBitShared
                 case 1: return "queryState";
                 case 2: return "queryId";
                 case 3: return "error";
+                case 255: return "profile";
                 default: return null;
             }
         }
@@ -1469,6 +1477,7 @@ public final class SchemaUserBitShared
             fieldMap.put("queryState", 1);
             fieldMap.put("queryId", 2);
             fieldMap.put("error", 3);
+            fieldMap.put("profile", 255);
         }
     }
 

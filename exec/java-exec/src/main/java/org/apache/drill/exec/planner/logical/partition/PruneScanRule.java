@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
@@ -576,13 +575,12 @@ public abstract class PruneScanRule extends StoragePluginOptimizerRule {
    */
   private static class ConvertAggScanToValuesRule extends PruneScanRule {
 
-    private final Pattern dirPattern;
+    private final String partitionColumnLabel;
 
     private ConvertAggScanToValuesRule(OptimizerRulesContext optimizerRulesContext) {
       super(RelOptHelper.some(Aggregate.class, DrillRel.DRILL_LOGICAL, RelOptHelper.any(TableScan.class)),
           "PartitionColumnScanPruningRule:Prune_On_Scan", optimizerRulesContext);
-      String partitionColumnLabel = optimizerRulesContext.getPlannerSettings().getFsPartitionColumnLabel();
-      dirPattern = Pattern.compile(partitionColumnLabel + "\\d+");
+      partitionColumnLabel = optimizerRulesContext.getPlannerSettings().getFsPartitionColumnLabel();
     }
 
     @Override
@@ -604,7 +602,7 @@ public abstract class PruneScanRule extends StoragePluginOptimizerRule {
       List<String> fieldNames = scan.getRowType().getFieldNames();
       // Check if select contains partition columns (dir0, dir1, dir2,..., dirN) only
       for (String field : fieldNames) {
-        if (!dirPattern.matcher(field).matches()) {
+        if (!ColumnExplorer.isPartitionColumn(partitionColumnLabel, field)) {
           return false;
         }
       }
