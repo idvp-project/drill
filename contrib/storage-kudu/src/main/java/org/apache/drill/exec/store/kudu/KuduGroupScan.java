@@ -50,7 +50,6 @@ import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.CompleteWork;
 import org.apache.drill.exec.store.schedule.EndpointByteMap;
 import org.apache.drill.exec.store.schedule.EndpointByteMapImpl;
-import org.apache.kudu.client.AsyncKuduScanner;
 import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.LocatedTablet;
@@ -99,8 +98,12 @@ public class KuduGroupScan extends AbstractGroupScan {
     try {
       KuduTable kuduTable = kuduStoragePlugin.getClient().openTable(tableName);
       KuduScanToken.KuduScanTokenBuilder builder = kuduStoragePlugin.getClient().newScanTokenBuilder(kuduTable)
-          .setFaultTolerant(true)
-          .readMode(AsyncKuduScanner.ReadMode.READ_AT_SNAPSHOT);
+          .setFaultTolerant(kuduStoragePlugin.getConfig().isFaultTolerant());
+
+      if (kuduStoragePlugin.getConfig().getScanTimeout() != null
+          && kuduStoragePlugin.getConfig().getScanTimeout() >= 0) {
+        builder.scanRequestTimeout(kuduStoragePlugin.getConfig().getScanTimeout());
+      }
 
       if (!Utilities.isStarQuery(columns)) {
         List<String> colNames = Lists.newArrayList();
