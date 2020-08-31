@@ -54,17 +54,14 @@ import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
-import org.apache.kudu.client.AsyncKuduScanner;
 import org.apache.kudu.client.KuduClient;
+import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduScanner;
-import org.apache.kudu.client.KuduScanner.KuduScannerBuilder;
 import org.apache.kudu.client.KuduScannerIterator;
-import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class KuduRecordReader extends AbstractRecordReader {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KuduRecordReader.class);
@@ -101,25 +98,9 @@ public class KuduRecordReader extends AbstractRecordReader {
     this.output = output;
     this.context = context;
     try {
-      KuduTable table = client.openTable(scanSpec.getTableName());
-
-      KuduScannerBuilder builder = client.newScannerBuilder(table);
-      if (!isStarQuery()) {
-        List<String> colNames = Lists.newArrayList();
-        for (SchemaPath p : this.getColumns()) {
-          colNames.add(p.getRootSegmentPath());
-        }
-        builder.setProjectedColumnNames(colNames);
-      }
-
       context.getStats().startWait();
       try {
-        KuduScanner scanner = builder
-                .lowerBoundRaw(scanSpec.getStartKey())
-                .exclusiveUpperBoundRaw(scanSpec.getEndKey())
-                .readMode(AsyncKuduScanner.ReadMode.READ_AT_SNAPSHOT)
-                .setFaultTolerant(true)
-                .build();
+        KuduScanner scanner = KuduScanToken.deserializeIntoScanner(scanSpec.getScanToken(), client);
         iterator = scanner.iterator();
       } finally {
         context.getStats().stopWait();
