@@ -276,6 +276,7 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
       new OptionDefinition(ExecConstants.QUERY_PROFILE_DEBUG_VALIDATOR),
       new OptionDefinition(ExecConstants.USE_DYNAMIC_UDFS),
       new OptionDefinition(ExecConstants.QUERY_TRANSIENT_STATE_UPDATE),
+      new OptionDefinition(ExecConstants.QUERY_CONTEXT, new OptionMetaData(OptionValue.AccessibleScopes.SESSION, false, true)),
       new OptionDefinition(ExecConstants.PERSISTENT_TABLE_UMASK_VALIDATOR),
       new OptionDefinition(ExecConstants.CPU_LOAD_AVERAGE),
       new OptionDefinition(ExecConstants.ENABLE_VECTOR_VALIDATOR),

@@ -950,6 +950,23 @@ public final class ExecConstants {
   public static final String QUERY_TRANSIENT_STATE_UPDATE_KEY = "exec.query.progress.update";
   public static final BooleanValidator QUERY_TRANSIENT_STATE_UPDATE = new BooleanValidator(QUERY_TRANSIENT_STATE_UPDATE_KEY, null);
 
+  /**
+   * Specifies a request context that only affects the next 1 request.
+   * Context can be used to pass client state to the Storage Plugin.
+   */
+  public static final String QUERY_CONTEXT_KEY = "exec.query.context";
+  public static final StringValidator QUERY_CONTEXT = new StringValidator(QUERY_CONTEXT_KEY, null) {
+    @Override
+    public int getTtl() {
+      return 1;
+    }
+
+    @Override
+    public boolean isShortLived() {
+      return true;
+    }
+  };
+
   public static final String PERSISTENT_TABLE_UMASK = "exec.persistent_table.umask";
   public static final StringValidator PERSISTENT_TABLE_UMASK_VALIDATOR = new StringValidator(PERSISTENT_TABLE_UMASK,
       new OptionDescription("Enables users to modify permissions on directories and files that result from running the CTAS command. The default is 002, which sets the default directory permissions to 775 and default file permissions to 664. (Drill 1.11+)"));
