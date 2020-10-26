@@ -173,24 +173,24 @@ public class AvroFormatTest extends ClusterTest {
           .go();
     } finally {
       FileUtils.deleteQuietly(new File(testWriter.getFilePath()));
-      resetSessionOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
+      client.resetSession(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
     }
   }
 
   @Test
   public void testPartitionColumn_SpecialCharacters() throws Exception {
-    setSessionOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL, "$directory");
+    client.alterSession(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL, "$directory");
     String file = "avroTable";
     String partitionColumn = "2018";
-    AvroTestUtil.AvroTestRecordWriter testWriter =
-        generateSimplePrimitiveSchema_NoNullValues(1, FileUtils.getFile(file, partitionColumn).getPath());
+    String tablePath = FileUtils.getFile(file, partitionColumn).getPath();
+    AvroDataGenerator.AvroTestRecordWriter testWriter = dataGenerator.generateSimplePrimitiveSchema_NoNullValues(1, tablePath);
     try {
       testBuilder()
-          .sqlQuery("select `$directory0` from dfs.`%s`", file)
-        .unOrdered()
-        .baselineColumns("$directory0")
-        .baselineValues(partitionColumn)
-        .go();
+        .sqlQuery("select `$directory0` from dfs.`%s`", file)
+          .unOrdered()
+          .baselineColumns("$directory0")
+          .baselineValues(partitionColumn)
+          .go();
     } finally {
       client.resetSession(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
       FileUtils.deleteQuietly(new File(testWriter.getFilePath()));

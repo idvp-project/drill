@@ -45,6 +45,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumn;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitInternalFileColumns;
@@ -297,7 +298,7 @@ public class ImplicitColumnResolver {
     }
 
     private void matchByName(ColumnHandle col) {
-      Matcher m = parser.partitionPattern.matcher(col.name());
+      Matcher m = ColumnExplorer.partitionColumnMatcher(parser.partitionDesignator, col.name());
       if (m.matches()) {
         buildPartitionColumn(m, col);
         return;
@@ -384,7 +385,6 @@ public class ImplicitColumnResolver {
   private final int maxPartitionDepth;
   private final boolean useLegacyWildcardExpansion;
   private final String partitionDesignator;
-  private final Pattern partitionPattern;
   private final Pattern partitionTypePattern;
   private final Map<String, ImplicitFileColumn> colDefs = CaseInsensitiveMap.newHashMap();
   private final Map<String, ImplicitFileColumn> typeDefs = CaseInsensitiveMap.newHashMap();
@@ -397,13 +397,7 @@ public class ImplicitColumnResolver {
     this.useLegacyWildcardExpansion = options.useLegacyWildcardExpansion;
     this.dfs = options.dfs;
     this.partitionDesignator = options.optionSet.getString(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
-    this.partitionPattern = Pattern.compile(partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
-    if (partitionDesignator.equals(ColumnMetadata.IMPLICIT_PARTITION_PREFIX)) {
-      this.partitionTypePattern = partitionPattern;
-    } else {
-      this.partitionTypePattern = Pattern.compile(ColumnMetadata.IMPLICIT_PARTITION_PREFIX + "(\\d+)",
-          Pattern.CASE_INSENSITIVE);
-    }
+    this.partitionTypePattern = Pattern.compile(ColumnMetadata.IMPLICIT_PARTITION_PREFIX + "(\\d+)", Pattern.CASE_INSENSITIVE);
 
     // File implicit columns: can be defined in the provided schema
     for (ImplicitFileColumns defn : ImplicitFileColumns.values()) {

@@ -18,17 +18,17 @@
 package org.apache.drill.exec.planner.sql.handlers;
 
 import org.apache.calcite.sql.SqlNode;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.planner.sql.DirectPlan;
 import org.apache.drill.exec.planner.sql.parser.SqlDropPlugin;
 import org.apache.drill.exec.store.StoragePlugin;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 public class DropPluginHandler extends DefaultSqlHandler {
 
-  private static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DropPluginHandler.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DropPluginHandler.class);
 
   public DropPluginHandler(SqlHandlerConfig config) {
     super(config);
@@ -41,7 +41,7 @@ public class DropPluginHandler extends DefaultSqlHandler {
     StoragePlugin plugin = null;
     try {
       plugin = context.getStorage().getPlugin(node.getName());
-    } catch (ExecutionSetupException e) {
+    } catch (StoragePluginRegistry.PluginException e) {
       logger.error("Failure on StoragePlugin initialization", e);
     }
 
@@ -55,7 +55,14 @@ public class DropPluginHandler extends DefaultSqlHandler {
       }
     }
 
-    context.getStorage().deletePlugin(node.getName());
+    try {
+      context.getStorage().remove(node.getName());
+    } catch (StoragePluginRegistry.PluginException e) {
+      logger.error("Failure on StoragePlugin removal", e);
+      throw UserException.planError()
+          .message(String.format("Plugin [%s] remove error.", node.getName()))
+          .build(logger);
+    }
 
     return DirectPlan.createDirectPlan(context, true,
       String.format("Plugin '%s' deleted successfully.", node.getName()));

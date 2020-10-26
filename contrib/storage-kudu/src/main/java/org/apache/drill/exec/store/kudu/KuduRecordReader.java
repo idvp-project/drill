@@ -62,6 +62,8 @@ import org.apache.kudu.client.RowResult;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KuduRecordReader extends AbstractRecordReader {
   private static final Logger logger = LoggerFactory.getLogger(KuduRecordReader.class);

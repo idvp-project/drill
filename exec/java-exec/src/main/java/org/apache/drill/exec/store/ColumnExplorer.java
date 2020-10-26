@@ -63,7 +63,7 @@ public class ColumnExplorer {
       .build(new CacheLoader<String, Pattern>() {
         @Override
         public Pattern load(final String designator) {
-          return Pattern.compile(Pattern.quote(designator) + "\\d+", Pattern.CASE_INSENSITIVE);
+          return Pattern.compile(Pattern.quote(designator) + "(\\d+)", Pattern.CASE_INSENSITIVE);
         }
       });
 
@@ -175,6 +175,19 @@ public class ColumnExplorer {
     Matcher matcher = pattern.matcher(path);
     return matcher.matches();
   }
+
+  /**
+   * Checks if given column is partition or not.
+   *
+   * @param partitionDesignator partition designator
+   * @param path column path
+   * @return {@link Matcher}
+   */
+  public static Matcher partitionColumnMatcher(String partitionDesignator, String path) {
+    Pattern pattern = patterns.getUnchecked(partitionDesignator);
+    return pattern.matcher(path);
+  }
+
 
   /**
    * Checks whether given column is implicit or internal.

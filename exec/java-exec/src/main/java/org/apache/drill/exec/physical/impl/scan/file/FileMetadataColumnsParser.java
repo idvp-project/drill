@@ -17,17 +17,17 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.resultSet.project.RequestedColumn;
+import org.apache.drill.exec.store.ColumnExplorer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
 
 /**
  * Parses the implicit file metadata columns out of a project list,
@@ -40,7 +40,6 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   // Internal
 
   private final ImplicitColumnManager metadataManager;
-  private final Pattern partitionPattern;
   private ScanLevelProjection builder;
   private final Set<Integer> referencedPartitions = new HashSet<>();
 
@@ -50,7 +49,6 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
   public FileMetadataColumnsParser(ImplicitColumnManager metadataManager) {
     this.metadataManager = metadataManager;
-    partitionPattern = Pattern.compile(metadataManager.partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
   }
 
   @Override
@@ -60,7 +58,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
   @Override
   public boolean parse(RequestedColumn inCol) {
-    Matcher m = partitionPattern.matcher(inCol.name());
+    Matcher m = ColumnExplorer.partitionColumnMatcher(metadataManager.partitionDesignator, inCol.name());
     if (m.matches()) {
       return buildPartitionColumn(m, inCol);
     }

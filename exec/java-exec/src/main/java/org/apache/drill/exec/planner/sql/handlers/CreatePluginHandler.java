@@ -17,21 +17,22 @@
  */
 package org.apache.drill.exec.planner.sql.handlers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.planner.sql.DirectPlan;
 import org.apache.drill.exec.planner.sql.parser.SqlCreatePlugin;
 import org.apache.drill.exec.store.StoragePlugin;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import java.io.IOException;
 
 public class CreatePluginHandler extends DefaultSqlHandler {
 
-  private static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CreatePluginHandler.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CreatePluginHandler.class);
 
   public CreatePluginHandler(SqlHandlerConfig config) {
     super(config);
@@ -49,7 +50,7 @@ public class CreatePluginHandler extends DefaultSqlHandler {
     StoragePlugin plugin = null;
     try {
       plugin = context.getStorage().getPlugin(node.getName());
-    } catch (ExecutionSetupException e) {
+    } catch (StoragePluginRegistry.PluginException e) {
       logger.error("Failure on StoragePlugin initialization", e);
     }
 
@@ -77,8 +78,9 @@ public class CreatePluginHandler extends DefaultSqlHandler {
     }
 
     try {
-      context.getStorage().createOrUpdate(node.getName(), config, true);
-    } catch (ExecutionSetupException e) {
+      config.setEnabled(true);
+      context.getStorage().putJson(node.getName(), context.getLpPersistence().getMapper().writeValueAsString(config));
+    } catch (StoragePluginRegistry.PluginException | JsonProcessingException e) {
       throw UserException.planError(e)
         .message(String.format("Failure while plugin [%s] initialization", node.getName()))
         .build(logger);

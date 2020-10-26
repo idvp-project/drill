@@ -122,7 +122,7 @@ public abstract class AbstractParquetScanBatchCreator {
         String partitionColumnLabel = context.getOptions().getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL).string_val;
         for (SchemaPath path : schemaPathsInExpr) {
           if (rowGroupScan.supportsFileImplicitColumns() &&
-            path.toString().matches(partitionColumnLabel+"\\d+")) {
+            ColumnExplorer.isPartitionColumn(partitionColumnLabel, path.toString())) {
             continue;  // skip implicit columns like dir0, dir1
           }
           columnsInExpr.add(SchemaPath.getSimplePath(path.getRootSegmentPath()));

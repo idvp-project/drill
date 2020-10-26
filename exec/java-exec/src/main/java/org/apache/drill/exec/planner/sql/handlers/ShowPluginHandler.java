@@ -18,11 +18,11 @@
 package org.apache.drill.exec.planner.sql.handlers;
 
 import org.apache.calcite.sql.SqlNode;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.planner.sql.DirectPlan;
 import org.apache.drill.exec.planner.sql.parser.SqlShowPlugin;
 import org.apache.drill.exec.store.StoragePlugin;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import java.io.IOException;
@@ -42,7 +42,7 @@ public class ShowPluginHandler extends DefaultSqlHandler {
     StoragePlugin plugin = null;
     try {
       plugin = context.getStorage().getPlugin(node.getName());
-    } catch (ExecutionSetupException e) {
+    } catch (StoragePluginRegistry.PluginException e) {
       logger.error("Failure on StoragePlugin initialization", e);
     }
 
