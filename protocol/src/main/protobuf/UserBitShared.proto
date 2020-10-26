@@ -209,6 +209,7 @@ message QueryResult {
 	optional QueryState query_state = 1;
 	optional QueryId query_id = 2;
 	repeated DrillPBError error = 3;
+	optional QueryProfile profile = 255;
 }
 
 /*

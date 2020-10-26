@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.drill.exec.util.Utilities;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
@@ -49,6 +50,8 @@ import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.CompleteWork;
 import org.apache.drill.exec.store.schedule.EndpointByteMap;
 import org.apache.drill.exec.store.schedule.EndpointByteMapImpl;
+import org.apache.kudu.client.KuduScanToken;
+import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.LocatedTablet;
 import org.apache.kudu.client.LocatedTablet.Replica;
 
@@ -92,9 +95,26 @@ public class KuduGroupScan extends AbstractGroupScan {
       endpointMap.put(endpoint.getAddress(), endpoint);
     }
     try {
-      List<LocatedTablet> locations = kuduStoragePlugin.getClient().openTable(tableName).getTabletsLocations(10000);
-      for (LocatedTablet tablet : locations) {
-        KuduWork work = new KuduWork(tablet.getPartition().getPartitionKeyStart(), tablet.getPartition().getPartitionKeyEnd());
+      KuduTable kuduTable = kuduStoragePlugin.getClient().openTable(tableName);
+      KuduScanToken.KuduScanTokenBuilder builder = kuduStoragePlugin.getClient().newScanTokenBuilder(kuduTable)
+          .setFaultTolerant(kuduStoragePlugin.getConfig().isFaultTolerant());
+
+      if (kuduStoragePlugin.getConfig().getScanTimeout() != null
+          && kuduStoragePlugin.getConfig().getScanTimeout() >= 0) {
+        builder.scanRequestTimeout(kuduStoragePlugin.getConfig().getScanTimeout());
+      }
+
+      if (!Utilities.isStarQuery(columns)) {
+        List<String> colNames = Lists.newArrayList();
+        for (SchemaPath p : columns) {
+          colNames.add(p.getRootSegmentPath());
+        }
+        builder.setProjectedColumnNames(colNames);
+      }
+
+      for (KuduScanToken scanToken : builder.build()) {
+        LocatedTablet tablet = scanToken.getTablet();
+        KuduWork work = new KuduWork(scanToken.serialize());
         for (Replica replica : tablet.getReplicas()) {
           String host = replica.getRpcHost();
           DrillbitEndpoint ep = endpointMap.get(host);
@@ -112,20 +132,14 @@ public class KuduGroupScan extends AbstractGroupScan {
   private static class KuduWork implements CompleteWork {
 
     private final EndpointByteMapImpl byteMap = new EndpointByteMapImpl();
-    private final byte[] partitionKeyStart;
-    private final byte[] partitionKeyEnd;
+    private final byte[] scanToken;
 
-    public KuduWork(byte[] partitionKeyStart, byte[] partitionKeyEnd) {
-      this.partitionKeyStart = partitionKeyStart;
-      this.partitionKeyEnd = partitionKeyEnd;
+    public KuduWork(byte[] scanToken) {
+      this.scanToken = scanToken;
     }
 
-    public byte[] getPartitionKeyStart() {
-      return partitionKeyStart;
-    }
-
-    public byte[] getPartitionKeyEnd() {
-      return partitionKeyEnd;
+    public byte[] getScanToken() {
+      return scanToken;
     }
 
     @Override
@@ -197,7 +211,7 @@ public class KuduGroupScan extends AbstractGroupScan {
     List<KuduSubScanSpec> scanSpecList = Lists.newArrayList();
 
     for (KuduWork work : workList) {
-      scanSpecList.add(new KuduSubScanSpec(getTableName(), work.getPartitionKeyStart(), work.getPartitionKeyEnd()));
+      scanSpecList.add(new KuduSubScanSpec(getTableName(), work.getScanToken()));
     }
 
     return new KuduSubScan(kuduStoragePlugin, scanSpecList, this.columns);

@@ -167,8 +167,28 @@ public class AvroFormatTest extends ClusterTest {
     try {
       testBuilder()
         .sqlQuery("select directory0 from dfs.`%s`", file)
+          .unOrdered()
+          .baselineColumns("directory0")
+          .baselineValues(partitionColumn)
+          .go();
+    } finally {
+      FileUtils.deleteQuietly(new File(testWriter.getFilePath()));
+      resetSessionOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
+    }
+  }
+
+  @Test
+  public void testPartitionColumn_SpecialCharacters() throws Exception {
+    setSessionOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL, "$directory");
+    String file = "avroTable";
+    String partitionColumn = "2018";
+    AvroTestUtil.AvroTestRecordWriter testWriter =
+        generateSimplePrimitiveSchema_NoNullValues(1, FileUtils.getFile(file, partitionColumn).getPath());
+    try {
+      testBuilder()
+          .sqlQuery("select `$directory0` from dfs.`%s`", file)
         .unOrdered()
-        .baselineColumns("directory0")
+        .baselineColumns("$directory0")
         .baselineValues(partitionColumn)
         .go();
     } finally {

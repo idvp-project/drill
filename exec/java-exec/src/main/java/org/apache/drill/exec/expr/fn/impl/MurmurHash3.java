@@ -164,8 +164,7 @@ public final class MurmurHash3 extends DrillHash{
 
     for (long i=start; i<roundedEnd; i+=4) {
       // little endian load order
-      long lk1 = (PlatformDependent.getByte(i) & 0xff) | ((PlatformDependent.getByte(i+1) & 0xff) << 8) |
-              ((PlatformDependent.getByte(i+2) & 0xff) << 16) | (PlatformDependent.getByte(i+3) << 24);
+      long lk1 = getIntLittleEndian(i);
 
       //k1 *= c1;
       lk1 *= c1;

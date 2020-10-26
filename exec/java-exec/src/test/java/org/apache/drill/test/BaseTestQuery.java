@@ -501,7 +501,7 @@ public class BaseTestQuery extends ExecTest {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
+    public void queryCompleted(QueryState state, UserBitShared.QueryProfile profile) {
       logger.debug("Query completed successfully with row count: " + count.get());
     }
 

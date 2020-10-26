@@ -69,7 +69,7 @@ public class ParquetResultListener implements UserResultsListener {
   }
 
   @Override
-  public void queryCompleted(QueryState state) {
+  public void queryCompleted(QueryState state, UserBitShared.QueryProfile profile) {
     checkLastChunk();
   }
 

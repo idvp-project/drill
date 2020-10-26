@@ -59,11 +59,14 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 public class ParquetGroupScan extends AbstractParquetGroupScan {
 
   private final ParquetFormatPlugin formatPlugin;
+
   private final ParquetFormatConfig formatConfig;
 
   private final boolean usedMetadataCache; // false by default
+
   // may change when filter push down / partition pruning is applied
   private final Path selectionRoot;
+
   private final Path cacheFileRoot;
 
   @SuppressWarnings("unused")
@@ -86,22 +89,14 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.cacheFileRoot = cacheFileRoot;
     this.formatPlugin = engineRegistry.resolveFormat(storageConfig, formatConfig, ParquetFormatPlugin.class);
     this.formatConfig = this.formatPlugin.getConfig();
-    DrillFileSystem fs =
-        ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
+    DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
 
     // used metadata provider manager which takes metadata from file system
     // to reduce calls into metastore when plan is submitted
     ParquetTableMetadataProviderBuilder<?> builder =
         defaultTableMetadataProviderBuilder(new FileSystemMetadataProviderManager());
 
-    this.metadataProvider = builder.withEntries(this.entries)
-        .withSelectionRoot(selectionRoot)
-        .withCacheFileRoot(cacheFileRoot)
-        .withReaderConfig(readerConfig)
-        .withFileSystem(fs)
-        .withCorrectCorruptedDates(this.formatConfig.areCorruptDatesAutoCorrected())
-        .withSchema(schema)
-        .build();
+    this.metadataProvider = builder.withEntries(this.entries).withSelectionRoot(selectionRoot).withCacheFileRoot(cacheFileRoot).withReaderConfig(readerConfig).withFileSystem(fs).withCorrectCorruptedDates(this.formatConfig.areCorruptDatesAutoCorrected()).withSchema(schema).build();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.selectionRoot = metadataProvider.getSelectionRoot();
@@ -111,22 +106,11 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     init();
   }
 
-  public ParquetGroupScan(String userName,
-                          FileSelection selection,
-                          ParquetFormatPlugin formatPlugin,
-                          List<SchemaPath> columns,
-                          ParquetReaderConfig readerConfig,
-                          MetadataProviderManager metadataProviderManager) throws IOException {
+  public ParquetGroupScan(String userName, FileSelection selection, ParquetFormatPlugin formatPlugin, List<SchemaPath> columns, ParquetReaderConfig readerConfig, MetadataProviderManager metadataProviderManager) throws IOException {
     this(userName, selection, formatPlugin, columns, readerConfig, ValueExpressions.BooleanExpression.TRUE, metadataProviderManager);
   }
 
-  public ParquetGroupScan(String userName,
-                          FileSelection selection,
-                          ParquetFormatPlugin formatPlugin,
-                          List<SchemaPath> columns,
-                          ParquetReaderConfig readerConfig,
-                          LogicalExpression filter,
-                          MetadataProviderManager metadataProviderManager) throws IOException {
+  public ParquetGroupScan(String userName, FileSelection selection, ParquetFormatPlugin formatPlugin, List<SchemaPath> columns, ParquetReaderConfig readerConfig, LogicalExpression filter, MetadataProviderManager metadataProviderManager) throws IOException {
     super(userName, columns, new ArrayList<>(), readerConfig, filter);
 
     this.formatPlugin = formatPlugin;
@@ -139,15 +123,9 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
       metadataProviderManager = new FileSystemMetadataProviderManager();
     }
 
-    ParquetTableMetadataProviderBuilder<?> builder =
-        tableMetadataProviderBuilder(metadataProviderManager);
+    ParquetTableMetadataProviderBuilder<?> builder = tableMetadataProviderBuilder(metadataProviderManager);
 
-    ParquetTableMetadataProvider metadataProvider = builder
-        .withSelection(selection)
-        .withReaderConfig(readerConfig)
-        .withFileSystem(fs)
-        .withCorrectCorruptedDates(formatConfig.areCorruptDatesAutoCorrected())
-        .build();
+    ParquetTableMetadataProvider metadataProvider = builder.withSelection(selection).withReaderConfig(readerConfig).withFileSystem(fs).withCorrectCorruptedDates(formatConfig.areCorruptDatesAutoCorrected()).build();
 
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
     this.usedMetastore = metadataProviderManager.usesMetastore();
@@ -162,18 +140,20 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
   /**
    * Copy constructor for shallow partial cloning
+   *
    * @param that old groupScan
    */
-  private ParquetGroupScan(ParquetGroupScan that) {
+  public ParquetGroupScan(ParquetGroupScan that) {
     this(that, null);
   }
 
   /**
    * Copy constructor for shallow partial cloning with new {@link FileSelection}
-   * @param that old groupScan
+   *
+   * @param that      old groupScan
    * @param selection new selection
    */
-  private ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
+  public ParquetGroupScan(ParquetGroupScan that, FileSelection selection) {
     super(that);
     this.formatConfig = that.formatConfig;
     this.formatPlugin = that.formatPlugin;
@@ -209,8 +189,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
   @Override
   public ParquetRowGroupScan getSpecificScan(int minorFragmentId) {
-    return new ParquetRowGroupScan(getUserName(), formatPlugin, getReadEntries(minorFragmentId), columns, readerConfig, selectionRoot, filter,
-      tableMetadata == null ? null : tableMetadata.getSchema());
+    return new ParquetRowGroupScan(getUserName(), formatPlugin, getReadEntries(minorFragmentId), columns, readerConfig, selectionRoot, filter, tableMetadata == null ? null : tableMetadata.getSchema());
   }
 
   @Override
@@ -259,9 +238,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     if (usedMetadataCache) {
       // For EXPLAIN, remove the URI prefix from cacheFileRoot.  If cacheFileRoot is null, we
       // would have read the cache file from selectionRoot
-      String cacheFileRootString = (cacheFileRoot == null) ?
-          Path.getPathWithoutSchemeAndAuthority(selectionRoot).toString() :
-          Path.getPathWithoutSchemeAndAuthority(cacheFileRoot).toString();
+      String cacheFileRootString = (cacheFileRoot == null) ? Path.getPathWithoutSchemeAndAuthority(selectionRoot).toString() : Path.getPathWithoutSchemeAndAuthority(cacheFileRoot).toString();
       builder.append(", cacheFileRoot=").append(cacheFileRootString);
     }
 

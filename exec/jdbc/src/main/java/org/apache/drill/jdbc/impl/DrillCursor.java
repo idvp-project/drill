@@ -19,6 +19,7 @@ package org.apache.drill.jdbc.impl;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
@@ -29,6 +30,8 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import io.protostuff.JsonIOUtil;
+import org.apache.drill.exec.proto.SchemaUserBitShared;
 import org.apache.drill.jdbc.DrillStatement;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.calcite.avatica.AvaticaStatement;
@@ -41,6 +44,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
+import org.apache.drill.exec.proto.UserBitShared.QueryProfile;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.UserProtos.PreparedStatement;
@@ -74,6 +78,7 @@ public class DrillCursor implements Cursor {
 
     /** (Just for logging.) */
     private volatile QueryId queryId;
+    private volatile QueryProfile profile;
 
     /** (Just for logging.) */
     private int lastReceivedBatchNumber;
@@ -207,14 +212,19 @@ public class DrillCursor implements Cursor {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
+    public void queryCompleted(QueryState state, QueryProfile profile) {
       logger.debug("[#{}] Received query completion: {}.", instanceId, state);
       releaseIfFirst();
+      this.profile = profile;
       completed = true;
     }
 
     QueryId getQueryId() {
       return queryId;
+    }
+
+    QueryProfile getProfile() {
+      return profile == QueryProfile.getDefaultInstance() ? null : profile;
     }
 
     /**
@@ -374,6 +384,17 @@ public class DrillCursor implements Cursor {
       return null;
     }
   }
+
+  public String getQueryProfile() {
+    if (resultsListener.getProfile() != null) {
+      byte[] bytes = JsonIOUtil.toByteArray(resultsListener.getProfile(), SchemaUserBitShared.QueryProfile.WRITE, false);
+      return new String(bytes, StandardCharsets.UTF_8);
+    } else {
+      return null;
+    }
+  }
+
+
 
   public boolean isBeforeFirst() {
     return currentRowNumber < 0;

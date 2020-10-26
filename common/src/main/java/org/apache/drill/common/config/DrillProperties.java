@@ -126,6 +126,15 @@ public final class DrillProperties extends Properties {
     return super.getProperty(key.toLowerCase(), defaultValue);
   }
 
+  @Override
+  public synchronized boolean containsKey(final Object key) {
+    if (key instanceof String) {
+      return super.containsKey(((String) key).toLowerCase());
+    }
+
+    return super.containsKey(key);
+  }
+
   public void merge(final Properties overrides) {
     if (overrides == null) {
       return;

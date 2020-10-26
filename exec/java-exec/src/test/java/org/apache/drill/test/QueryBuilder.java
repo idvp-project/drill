@@ -42,6 +42,7 @@ import org.apache.drill.exec.physical.rowSet.DirectRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
+import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
@@ -109,7 +110,7 @@ public class QueryBuilder {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
+    public void queryCompleted(QueryState state, UserBitShared.QueryProfile profile) {
       future.completed(
           new QuerySummary(queryId, recordCount, batchCount,
                            System.currentTimeMillis() - startTime, state));

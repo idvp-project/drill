@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.expr.fn.impl;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * Thin wrapper around byte array. This class is used by aggregate functions which
  * consume decimal, variable width vectors as inputs.
@@ -58,5 +61,25 @@ public class DrillByteArray {
   public void setBytes(byte[] bytes, int length) {
     this.bytes = bytes;
     this.length = length;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    DrillByteArray that = (DrillByteArray) o;
+    return length == that.length &&
+        Arrays.equals(bytes, that.bytes);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(length);
+    result = 31 * result + Arrays.hashCode(bytes);
+    return result;
   }
 }

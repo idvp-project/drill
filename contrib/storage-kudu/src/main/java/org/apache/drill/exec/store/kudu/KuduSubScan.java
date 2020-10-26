@@ -107,23 +107,20 @@ public class KuduSubScan extends AbstractBase implements SubScan {
   public static class KuduSubScanSpec {
 
     private final String tableName;
-    private final byte[] startKey;
-    private final byte[] endKey;
+    private final byte[] scanToken;
 
     @JsonCreator
     public KuduSubScanSpec(@JsonProperty("tableName") String tableName,
-                           @JsonProperty("startKey") byte[] startKey,
-                           @JsonProperty("endKey") byte[] endKey) {
+                           @JsonProperty("scanToken") byte[] scanToken) {
       this.tableName = tableName;
-      this.startKey = startKey;
-      this.endKey = endKey;
+      this.scanToken = scanToken;
     }
 
     public String getTableName() { return tableName; }
 
-    public byte[] getStartKey() { return startKey; }
-
-    public byte[] getEndKey() { return endKey; }
+    public byte[] getScanToken() {
+      return scanToken;
+    }
   }
 
   @Override

@@ -127,6 +127,7 @@ public interface QueryQueue {
    * wait time.
    * @param queryId the query ID
    * @param cost the cost of the query used for cost-based queueing
+   * @param nestedQuery shows that the request is nested (from drill to itself)
    * @return the query lease which must be passed to {@link #release(QueueLease)}
    * upon query completion
    * @throws QueueTimeoutException if the query times out waiting to be
@@ -134,7 +135,7 @@ public interface QueryQueue {
    * @throws QueryQueueException for any other error condition.
    */
 
-  QueueLease enqueue(QueryId queryId, double cost) throws QueueTimeoutException, QueryQueueException;
+  QueueLease enqueue(QueryId queryId, double cost, boolean nestedQuery) throws QueueTimeoutException, QueryQueueException;
 
   void close();
 }

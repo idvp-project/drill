@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.AbstractPhysicalVisitor;
@@ -60,6 +62,17 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
  */
 
 public class ThrottledResourceManager extends AbstractResourceManager {
+
+  /**
+   * Query should be executed out of order.
+   */
+  public static final String OUT_OF_ORDER = "RM_OUT_OF_ORDER";
+
+  /**
+   * Query is nested (from drill to itself).
+   */
+  public static final String NESTED = "RM_NESTED";
+
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
       .getLogger(ThrottledResourceManager.class);
@@ -300,7 +313,15 @@ public class ThrottledResourceManager extends AbstractResourceManager {
 
     @Override
     public void admit() throws QueueTimeoutException, QueryQueueException {
-      lease = rm.queue().enqueue(foreman.getQueryId(), queryCost);
+      String tags = foreman.getQueryContext()
+              .getOptions()
+              .getOption(ExecConstants.RM_QUERY_TAGS_VALIDATOR);
+
+      if (StringUtils.contains(tags, OUT_OF_ORDER)) {
+        return;
+      }
+
+      lease = rm.queue().enqueue(foreman.getQueryId(), queryCost, StringUtils.contains(tags, NESTED));
     }
 
     @Override

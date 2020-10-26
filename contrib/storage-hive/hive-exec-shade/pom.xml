@@ -24,7 +24,7 @@
   <parent>
     <groupId>org.apache.drill.contrib.storage-hive</groupId>
     <artifactId>drill-contrib-storage-hive-parent</artifactId>
-    <version>1.18.0</version>
+    <version>1.18.0-0.5.9</version>
   </parent>
 
   <artifactId>drill-hive-exec-shaded</artifactId>
@@ -206,6 +206,8 @@
                  you can use TestHiveStorage.readFromAlteredPartitionedTableWithEmptyGroupType() test case. -->
                 <exclude>org/apache/parquet/**</exclude>
                 <exclude>shaded/parquet/org/**</exclude>
+                <exclude>org/apache/commons/lang/**</exclude>
+                <exclude>org/apache/commons/lang3/**</exclude>
               </excludes>
             </filter>
             <filter>

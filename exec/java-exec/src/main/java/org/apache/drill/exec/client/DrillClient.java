@@ -855,7 +855,7 @@ public class DrillClient implements Closeable, ConnectionThrottle {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
+    public void queryCompleted(QueryState state, UserBitShared.QueryProfile profile) {
       future.set(results);
     }
 

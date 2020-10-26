@@ -35,6 +35,7 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -1254,6 +1255,15 @@ public class DrillResultSetImpl extends AvaticaResultSet implements DrillResultS
       return ((DrillCursor) cursor).getQueryId();
     }
     return null;
+  }
+
+  @Override
+  public Optional<String> getQueryProfile() throws SQLException {
+    checkOpen();
+    if (cursor instanceof DrillCursor) {
+      return Optional.ofNullable(((DrillCursor) cursor).getQueryProfile());
+    }
+    return Optional.empty();
   }
 
 

@@ -30,7 +30,7 @@
 
   <groupId>org.apache.drill</groupId>
   <artifactId>drill-root</artifactId>
-  <version>1.18.0</version>
+  <version>1.18.0-0.5.9</version>
   <packaging>pom</packaging>
 
   <name>Apache Drill Root POM</name>
@@ -133,7 +133,7 @@
     <connection>scm:git:https://gitbox.apache.org/repos/asf/drill.git</connection>
     <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/drill.git</developerConnection>
     <url>https://github.com/apache/drill</url>
-    <tag>drill-1.18.0</tag>
+    <tag>drill-1.18.0-0.5.9</tag>
   </scm>
 
   <mailingLists>
@@ -856,6 +856,7 @@
               -XX:+CMSClassUnloadingEnabled -ea
               -Djdk.attach.allowAttachSelf=true
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
+              -Duser.language=en -Duser.country=US
             </argLine>
             <forkCount>${forkCount}</forkCount>
             <reuseForks>true</reuseForks>
@@ -3910,4 +3911,15 @@
     <module>distribution</module>
     <module>metastore</module>
   </modules>
+
+  <distributionManagement>
+    <repository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>libs-mvn-local</id>
+      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>

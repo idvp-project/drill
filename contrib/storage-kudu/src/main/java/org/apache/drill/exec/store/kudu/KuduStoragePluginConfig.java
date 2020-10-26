@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.kudu;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,19 +25,34 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName(KuduStoragePluginConfig.NAME)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class KuduStoragePluginConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "kudu";
 
   private final String masterAddresses;
+  private final boolean faultTolerant;
+  private final Integer scanTimeout;
 
   @JsonCreator
-  public KuduStoragePluginConfig(@JsonProperty("masterAddresses") String masterAddresses) {
+  public KuduStoragePluginConfig(@JsonProperty("masterAddresses") String masterAddresses,
+                                 @JsonProperty("faultTolerant") Boolean faultTolerant,
+                                 @JsonProperty("scanTimeout") Integer scanTimeout) {
     this.masterAddresses = masterAddresses;
+    this.faultTolerant = !Boolean.FALSE.equals(faultTolerant); // true by default
+    this.scanTimeout = scanTimeout;
   }
 
   public String getMasterAddresses() {
     return masterAddresses;
+  }
+
+  public boolean isFaultTolerant() {
+    return faultTolerant;
+  }
+
+  public Integer getScanTimeout() {
+    return scanTimeout;
   }
 
   @Override
@@ -44,6 +60,8 @@ public class KuduStoragePluginConfig extends StoragePluginConfigBase {
     final int prime = 31;
     int result = 1;
     result = prime * result + ((masterAddresses == null) ? 0 : masterAddresses.hashCode());
+    result = prime * result + Boolean.hashCode(faultTolerant);
+    result = prime * result + ((scanTimeout == null) ? 0 : scanTimeout.hashCode());
     return result;
   }
 
@@ -66,7 +84,16 @@ public class KuduStoragePluginConfig extends StoragePluginConfigBase {
     } else if (!masterAddresses.equals(other.masterAddresses)) {
       return false;
     }
-    return true;
+
+    if (scanTimeout == null) {
+      if (other.scanTimeout != null) {
+        return false;
+      }
+    } else if (!scanTimeout.equals(other.scanTimeout)) {
+      return false;
+    }
+
+    return faultTolerant == other.faultTolerant;
   }
 
 

@@ -182,8 +182,8 @@ public class TestTpchDistributedConcurrent extends ClusterTest {
     }
 
     @Override
-    public void queryCompleted(QueryState state) {
-      super.queryCompleted(state);
+    public void queryCompleted(QueryState state, UserBitShared.QueryProfile profile) {
+      super.queryCompleted(state, profile);
 
       synchronized (TestTpchDistributedConcurrent.this) {
         final Object object = listeners.remove(this);

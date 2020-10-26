@@ -27,6 +27,7 @@ import org.apache.drill.test.TestTools;
 import org.apache.drill.jdbc.DrillResultSet;
 import org.apache.drill.jdbc.Driver;
 import org.apache.drill.jdbc.JdbcTestBase;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.rules.TestRule;
 
@@ -73,6 +74,7 @@ public class JdbcTestQueryBase extends JdbcTestBase {
         }
 
         sb.append(String.format("Query completed in %d millis.\n", watch.elapsed(TimeUnit.MILLISECONDS)));
+        Assert.assertTrue(r.unwrap(DrillResultSet.class).getQueryProfile().isPresent());
       }
 
       sb.append("\n\n\n");

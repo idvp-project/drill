@@ -20,6 +20,7 @@ package org.apache.drill.jdbc;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 
 /**
@@ -35,6 +36,14 @@ public interface DrillResultSet extends ResultSet  {
    * @throws  SQLException  if this method is called on a closed result set
    */
   String getQueryId() throws SQLException;
+
+  /**
+   * Gets the profile of the associated query (the query whose results this ResultSet
+   * presents).
+   * @throws  SQLException  if this method is called on a closed result set
+   * @apiNote Query profile is available only after its execution.
+   */
+  Optional<String> getQueryProfile() throws SQLException;
 
   /**
    * {@inheritDoc}

@@ -12433,6 +12433,19 @@ public final class UserBitShared {
      */
     org.apache.drill.exec.proto.UserBitShared.DrillPBErrorOrBuilder getErrorOrBuilder(
         int index);
+
+    /**
+     * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+     */
+    boolean hasProfile();
+    /**
+     * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+     */
+    org.apache.drill.exec.proto.UserBitShared.QueryProfile getProfile();
+    /**
+     * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+     */
+    org.apache.drill.exec.proto.UserBitShared.QueryProfileOrBuilder getProfileOrBuilder();
   }
   /**
    * <pre>
@@ -12518,6 +12531,19 @@ public final class UserBitShared {
               }
               error_.add(
                   input.readMessage(org.apache.drill.exec.proto.UserBitShared.DrillPBError.PARSER, extensionRegistry));
+              break;
+            }
+            case 2042: {
+              org.apache.drill.exec.proto.UserBitShared.QueryProfile.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000004) == 0x00000004)) {
+                subBuilder = profile_.toBuilder();
+              }
+              profile_ = input.readMessage(org.apache.drill.exec.proto.UserBitShared.QueryProfile.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(profile_);
+                profile_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000004;
               break;
             }
             default: {
@@ -12848,6 +12874,27 @@ public final class UserBitShared {
       return error_.get(index);
     }
 
+    public static final int PROFILE_FIELD_NUMBER = 255;
+    private org.apache.drill.exec.proto.UserBitShared.QueryProfile profile_;
+    /**
+     * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+     */
+    public boolean hasProfile() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+     */
+    public org.apache.drill.exec.proto.UserBitShared.QueryProfile getProfile() {
+      return profile_ == null ? org.apache.drill.exec.proto.UserBitShared.QueryProfile.getDefaultInstance() : profile_;
+    }
+    /**
+     * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+     */
+    public org.apache.drill.exec.proto.UserBitShared.QueryProfileOrBuilder getProfileOrBuilder() {
+      return profile_ == null ? org.apache.drill.exec.proto.UserBitShared.QueryProfile.getDefaultInstance() : profile_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -12871,6 +12918,9 @@ public final class UserBitShared {
       for (int i = 0; i < error_.size(); i++) {
         output.writeMessage(3, error_.get(i));
       }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeMessage(255, getProfile());
+      }
       unknownFields.writeTo(output);
     }
 
@@ -12891,6 +12941,10 @@ public final class UserBitShared {
       for (int i = 0; i < error_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(3, error_.get(i));
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(255, getProfile());
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -12916,10 +12970,15 @@ public final class UserBitShared {
         if (!getQueryId()
             .equals(other.getQueryId())) return false;
       }
-      if (!getErrorList()
-          .equals(other.getErrorList())) return false;
-      if (!unknownFields.equals(other.unknownFields)) return false;
-      return true;
+      result = result && getErrorList()
+          .equals(other.getErrorList());
+      result = result && (hasProfile() == other.hasProfile());
+      if (hasProfile()) {
+        result = result && getProfile()
+            .equals(other.getProfile());
+      }
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
     }
 
     @java.lang.Override
@@ -12940,6 +12999,10 @@ public final class UserBitShared {
       if (getErrorCount() > 0) {
         hash = (37 * hash) + ERROR_FIELD_NUMBER;
         hash = (53 * hash) + getErrorList().hashCode();
+      }
+      if (hasProfile()) {
+        hash = (37 * hash) + PROFILE_FIELD_NUMBER;
+        hash = (53 * hash) + getProfile().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -13075,6 +13138,7 @@ public final class UserBitShared {
                 .alwaysUseFieldBuilders) {
           getQueryIdFieldBuilder();
           getErrorFieldBuilder();
+          getProfileFieldBuilder();
         }
       }
       @java.lang.Override
@@ -13094,6 +13158,12 @@ public final class UserBitShared {
         } else {
           errorBuilder_.clear();
         }
+        if (profileBuilder_ == null) {
+          profile_ = null;
+        } else {
+          profileBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -13142,6 +13212,14 @@ public final class UserBitShared {
           result.error_ = error_;
         } else {
           result.error_ = errorBuilder_.build();
+        }
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        if (profileBuilder_ == null) {
+          result.profile_ = profile_;
+        } else {
+          result.profile_ = profileBuilder_.build();
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -13223,6 +13301,9 @@ public final class UserBitShared {
               errorBuilder_.addAllMessages(other.error_);
             }
           }
+        }
+        if (other.hasProfile()) {
+          mergeProfile(other.getProfile());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -13654,6 +13735,124 @@ public final class UserBitShared {
           error_ = null;
         }
         return errorBuilder_;
+      }
+
+      private org.apache.drill.exec.proto.UserBitShared.QueryProfile profile_ = null;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.apache.drill.exec.proto.UserBitShared.QueryProfile, org.apache.drill.exec.proto.UserBitShared.QueryProfile.Builder, org.apache.drill.exec.proto.UserBitShared.QueryProfileOrBuilder> profileBuilder_;
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public boolean hasProfile() {
+        return ((bitField0_ & 0x00000008) == 0x00000008);
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public org.apache.drill.exec.proto.UserBitShared.QueryProfile getProfile() {
+        if (profileBuilder_ == null) {
+          return profile_ == null ? org.apache.drill.exec.proto.UserBitShared.QueryProfile.getDefaultInstance() : profile_;
+        } else {
+          return profileBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public Builder setProfile(org.apache.drill.exec.proto.UserBitShared.QueryProfile value) {
+        if (profileBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          profile_ = value;
+          onChanged();
+        } else {
+          profileBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000008;
+        return this;
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public Builder setProfile(
+          org.apache.drill.exec.proto.UserBitShared.QueryProfile.Builder builderForValue) {
+        if (profileBuilder_ == null) {
+          profile_ = builderForValue.build();
+          onChanged();
+        } else {
+          profileBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000008;
+        return this;
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public Builder mergeProfile(org.apache.drill.exec.proto.UserBitShared.QueryProfile value) {
+        if (profileBuilder_ == null) {
+          if (((bitField0_ & 0x00000008) == 0x00000008) &&
+              profile_ != null &&
+              profile_ != org.apache.drill.exec.proto.UserBitShared.QueryProfile.getDefaultInstance()) {
+            profile_ =
+              org.apache.drill.exec.proto.UserBitShared.QueryProfile.newBuilder(profile_).mergeFrom(value).buildPartial();
+          } else {
+            profile_ = value;
+          }
+          onChanged();
+        } else {
+          profileBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000008;
+        return this;
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public Builder clearProfile() {
+        if (profileBuilder_ == null) {
+          profile_ = null;
+          onChanged();
+        } else {
+          profileBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000008);
+        return this;
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public org.apache.drill.exec.proto.UserBitShared.QueryProfile.Builder getProfileBuilder() {
+        bitField0_ |= 0x00000008;
+        onChanged();
+        return getProfileFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      public org.apache.drill.exec.proto.UserBitShared.QueryProfileOrBuilder getProfileOrBuilder() {
+        if (profileBuilder_ != null) {
+          return profileBuilder_.getMessageOrBuilder();
+        } else {
+          return profile_ == null ?
+              org.apache.drill.exec.proto.UserBitShared.QueryProfile.getDefaultInstance() : profile_;
+        }
+      }
+      /**
+       * <code>optional .exec.shared.QueryProfile profile = 255;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.apache.drill.exec.proto.UserBitShared.QueryProfile, org.apache.drill.exec.proto.UserBitShared.QueryProfile.Builder, org.apache.drill.exec.proto.UserBitShared.QueryProfileOrBuilder>
+          getProfileFieldBuilder() {
+        if (profileBuilder_ == null) {
+          profileBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.apache.drill.exec.proto.UserBitShared.QueryProfile, org.apache.drill.exec.proto.UserBitShared.QueryProfile.Builder, org.apache.drill.exec.proto.UserBitShared.QueryProfileOrBuilder>(
+                  getProfile(),
+                  getParentForChildren(),
+                  isClean());
+          profile_ = null;
+        }
+        return profileBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -28990,7 +29189,7 @@ public final class UserBitShared {
       "ed.SerializedField\022\023\n\013value_count\030\004 \001(\005\022" +
       "\027\n\017var_byte_length\030\005 \001(\005\022\025\n\rbuffer_lengt" +
       "h\030\007 \001(\005\"7\n\nNodeStatus\022\017\n\007node_id\030\001 \001(\005\022\030" +
-      "\n\020memory_footprint\030\002 \001(\003\"\263\002\n\013QueryResult" +
+      "\n\020memory_footprint\030\002 \001(\003\"\340\002\n\013QueryResult" +
       "\0228\n\013query_state\030\001 \001(\0162#.exec.shared.Quer" +
       "yResult.QueryState\022&\n\010query_id\030\002 \001(\0132\024.e" +
       "xec.shared.QueryId\022(\n\005error\030\003 \003(\0132\031.exec" +
@@ -29169,7 +29368,7 @@ public final class UserBitShared {
     internal_static_exec_shared_QueryResult_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_exec_shared_QueryResult_descriptor,
-        new java.lang.String[] { "QueryState", "QueryId", "Error", });
+        new java.lang.String[] { "QueryState", "QueryId", "Error", "Profile", });
     internal_static_exec_shared_QueryData_descriptor =
       getDescriptor().getMessageTypes().get(11);
     internal_static_exec_shared_QueryData_fieldAccessorTable = new
