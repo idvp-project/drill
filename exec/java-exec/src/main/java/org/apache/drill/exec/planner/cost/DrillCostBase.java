@@ -20,6 +20,7 @@ package org.apache.drill.exec.planner.cost;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.runtime.Utilities;
+import org.apache.drill.exec.ops.QueryCancelledException;
 
 /**
  * Implementation of the DrillRelOptCost, modeled similar to VolcanoCost
@@ -305,37 +306,50 @@ public class DrillCostBase implements DrillRelOptCost {
   public static class DrillCostFactory implements DrillRelOptCostFactory {
 
     public RelOptCost makeCost(double dRows, double dCpu, double dIo, double dNetwork, double dMemory) {
+      checkInterrupted();
       return new DrillCostBase(dRows, dCpu, dIo, dNetwork, dMemory);
     }
 
     @Override
     public RelOptCost makeCost(double dRows, double dCpu, double dIo, double dNetwork) {
+      checkInterrupted();
       return new DrillCostBase(dRows, dCpu, dIo, dNetwork, 0);
     }
 
     @Override
     public RelOptCost makeCost(double dRows, double dCpu, double dIo) {
+      checkInterrupted();
       return new DrillCostBase(dRows, dCpu, dIo, 0, 0);
     }
 
     @Override
     public RelOptCost makeHugeCost() {
+      checkInterrupted();
       return DrillCostBase.HUGE;
     }
 
     @Override
     public RelOptCost makeInfiniteCost() {
+      checkInterrupted();
       return DrillCostBase.INFINITY;
     }
 
     @Override
     public RelOptCost makeTinyCost() {
+      checkInterrupted();
       return DrillCostBase.TINY;
     }
 
     @Override
     public RelOptCost makeZeroCost() {
+      checkInterrupted();
       return DrillCostBase.ZERO;
+    }
+
+    private void checkInterrupted() {
+      if (Thread.interrupted()) {
+        throw new QueryCancelledException();
+      }
     }
   }
 }
