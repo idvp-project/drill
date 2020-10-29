@@ -17,22 +17,8 @@
  */
 package org.apache.drill.exec.planner;
 
+import org.apache.drill.exec.planner.logical.ConvertCountToDirectScanRule;
 import org.apache.drill.exec.planner.logical.ConvertMetadataAggregateToDirectScanRule;
-import org.apache.drill.exec.planner.physical.MetadataAggPrule;
-import org.apache.drill.exec.planner.physical.MetadataControllerPrule;
-import org.apache.drill.exec.planner.physical.MetadataHandlerPrule;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet.Builder;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
-import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
-import org.apache.calcite.tools.RuleSet;
-import org.apache.calcite.tools.RuleSets;
-import org.apache.drill.exec.ops.OptimizerRulesContext;
-import org.apache.drill.exec.planner.index.rules.DbScanSortRemovalRule;
-import org.apache.drill.exec.planner.index.rules.DbScanToIndexScanPrule;
 import org.apache.drill.exec.planner.logical.DrillAggregateRule;
 import org.apache.drill.exec.planner.logical.DrillCorrelateRule;
 import org.apache.drill.exec.planner.logical.DrillFilterAggregateTransposeRule;
@@ -52,6 +38,7 @@ import org.apache.drill.exec.planner.logical.DrillPushProjectIntoScanRule;
 import org.apache.drill.exec.planner.logical.DrillPushProjectPastFilterRule;
 import org.apache.drill.exec.planner.logical.DrillPushProjectPastJoinRule;
 import org.apache.drill.exec.planner.logical.DrillPushRowKeyJoinToScanRule;
+import org.apache.drill.exec.planner.logical.DrillQueryCancelledRule;
 import org.apache.drill.exec.planner.logical.DrillReduceAggregatesRule;
 import org.apache.drill.exec.planner.logical.DrillReduceExpressionsRule;
 import org.apache.drill.exec.planner.logical.DrillRelFactories;
@@ -61,9 +48,23 @@ import org.apache.drill.exec.planner.logical.DrillUnionAllRule;
 import org.apache.drill.exec.planner.logical.DrillUnnestRule;
 import org.apache.drill.exec.planner.logical.DrillValuesRule;
 import org.apache.drill.exec.planner.logical.DrillWindowRule;
+import org.apache.drill.exec.planner.physical.MetadataAggPrule;
+import org.apache.drill.exec.planner.physical.MetadataControllerPrule;
+import org.apache.drill.exec.planner.physical.MetadataHandlerPrule;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet.Builder;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
+import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
+import org.apache.calcite.tools.RuleSet;
+import org.apache.calcite.tools.RuleSets;
+import org.apache.drill.exec.ops.OptimizerRulesContext;
+import org.apache.drill.exec.planner.index.rules.DbScanSortRemovalRule;
+import org.apache.drill.exec.planner.index.rules.DbScanToIndexScanPrule;
 import org.apache.drill.exec.planner.logical.partition.ParquetPruneScanRule;
 import org.apache.drill.exec.planner.logical.partition.PruneScanRule;
-import org.apache.drill.exec.planner.logical.ConvertCountToDirectScanRule;
 import org.apache.drill.exec.planner.physical.AnalyzePrule;
 import org.apache.drill.exec.planner.physical.ConvertCountToDirectScanPrule;
 import org.apache.drill.exec.planner.physical.LateralJoinPrule;
@@ -108,6 +109,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           getDrillBasicRules(context),
           getPruneScanRules(context),
           getJoinPermRules(context),
@@ -120,6 +122,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return RuleSets.ofList(
+          DrillQueryCancelledRule.INSTANCE,
           RuleInstance.CALC_INSTANCE,
           RuleInstance.PROJECT_TO_LOGICAL_PROJECT_AND_WINDOW_RULE
           );
@@ -130,6 +133,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return RuleSets.ofList(
+          DrillQueryCancelledRule.INSTANCE,
           RuleInstance.SUB_QUERY_FILTER_REMOVE_RULE,
           RuleInstance.SUB_QUERY_PROJECT_REMOVE_RULE,
           RuleInstance.SUB_QUERY_JOIN_REMOVE_RULE
@@ -141,6 +145,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           getDrillBasicRules(context),
           getPruneScanRules(context),
           getDrillUserConfigurableLogicalRules(context),
@@ -158,6 +163,7 @@ public enum PlannerPhase {
       }
       rules.add(RuleInstance.PROJECT_REMOVE_RULE);
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           RuleSets.ofList(rules),
           getStorageRules(context, plugins, this)
           );
@@ -172,6 +178,7 @@ public enum PlannerPhase {
         rules.add(DrillPushRowKeyJoinToScanRule.JOIN);
       }
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           RuleSets.ofList(rules),
           getStorageRules(context, plugins, this)
       );
@@ -182,6 +189,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           RuleSets.ofList(
               DrillReduceAggregatesRule.INSTANCE_SUM,
               DrillReduceAggregatesRule.INSTANCE_WINDOW_SUM),
@@ -193,21 +201,21 @@ public enum PlannerPhase {
   PARTITION_PRUNING("Partition Prune Planning") {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
-      return PlannerPhase.mergedRuleSets(getPruneScanRules(context), getStorageRules(context, plugins, this));
+      return PlannerPhase.mergedRuleSets(getCancellationRules(), getPruneScanRules(context), getStorageRules(context, plugins, this));
     }
   },
 
   PHYSICAL_PARTITION_PRUNING("Physical Partition Prune Planning") {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
-      return PlannerPhase.mergedRuleSets(getPhysicalPruneScanRules(context), getStorageRules(context, plugins, this));
+      return PlannerPhase.mergedRuleSets(getCancellationRules(), getPhysicalPruneScanRules(context), getStorageRules(context, plugins, this));
     }
   },
 
   DIRECTORY_PRUNING("Directory Prune Planning") {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
-      return PlannerPhase.mergedRuleSets(getDirPruneScanRules(context), getStorageRules(context, plugins, this));
+      return PlannerPhase.mergedRuleSets(getCancellationRules(), getDirPruneScanRules(context), getStorageRules(context, plugins, this));
     }
   },
 
@@ -215,6 +223,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           PlannerPhase.getDrillBasicRules(context),
           PlannerPhase.getDrillUserConfigurableLogicalRules(context),
           getStorageRules(context, plugins, this));
@@ -225,6 +234,7 @@ public enum PlannerPhase {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
+          getCancellationRules(),
           PlannerPhase.getPhysicalRules(context),
           getIndexRules(context),
           getStorageRules(context, plugins, this));
@@ -234,14 +244,14 @@ public enum PlannerPhase {
   PRE_LOGICAL_PLANNING("Planning with Hep planner only for rules, which are failed for Volcano planner") {
     @Override
     public RuleSet getRules (OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
-      return PlannerPhase.getSetOpTransposeRules();
+      return PlannerPhase.mergedRuleSets(getCancellationRules(), PlannerPhase.getSetOpTransposeRules());
     }
   },
 
   TRANSITIVE_CLOSURE("Transitive closure") {
     @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
-      return getJoinTransitiveClosureRules();
+      return PlannerPhase.mergedRuleSets(getCancellationRules(), getJoinTransitiveClosureRules());
     }
   };
 
@@ -594,6 +604,10 @@ public enum PlannerPhase {
       }
     }
     return RuleSets.ofList(relOptRuleSetBuilder.build());
+  }
+
+  private static RuleSet getCancellationRules() {
+    return RuleSets.ofList(DrillQueryCancelledRule.INSTANCE);
   }
 
   /**
