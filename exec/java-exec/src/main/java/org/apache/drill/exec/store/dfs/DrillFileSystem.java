@@ -81,6 +81,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   private final FileSystem underlyingFs;
   private final OperatorStats operatorStats;
   private final CompressionCodecFactory codecFactory;
+  private final boolean closableFs;
 
   public DrillFileSystem(Configuration fsConf) throws IOException {
     this(fsConf, null);
@@ -94,6 +95,9 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
     this.underlyingFs = FileSystem.get(fsConf);
     this.codecFactory = new CompressionCodecFactory(fsConf);
     this.operatorStats = operatorStats;
+
+    String disableCacheName = String.format("fs.%s.impl.disable.cache", underlyingFs.getScheme());
+    this.closableFs = fsConf.getBoolean(disableCacheName, false);
   }
 
   private void throwUnsupported() {
@@ -450,6 +454,10 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
         logger.error(errMsg);
         throw new IllegalStateException(errMsg);
       }
+    }
+
+    if (closableFs && underlyingFs != null) {
+      underlyingFs.close();
     }
   }
 
