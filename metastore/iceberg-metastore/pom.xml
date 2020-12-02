@@ -24,7 +24,7 @@
   <parent>
     <artifactId>metastore-parent</artifactId>
     <groupId>org.apache.drill.metastore</groupId>
-    <version>1.18.0-0.5.9</version>
+    <version>1.18.0-0.5.10</version>
   </parent>
 
   <artifactId>drill-iceberg-metastore</artifactId>
