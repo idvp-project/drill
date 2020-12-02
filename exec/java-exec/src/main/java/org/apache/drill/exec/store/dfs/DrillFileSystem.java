@@ -65,7 +65,7 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 /**
  * DrillFileSystem is the wrapper around the actual FileSystem implementation. The {@link DrillFileSystem} is
  * immutable.
- *
+ * <p>
  * If {@link org.apache.drill.exec.ops.OperatorStats} are provided it returns an instrumented FSDataInputStream to
  * measure IO wait time and tracking file open/close operations.
  */
@@ -96,7 +96,8 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
     this.codecFactory = new CompressionCodecFactory(fsConf);
     this.operatorStats = operatorStats;
 
-    String disableCacheName = String.format("fs.%s.impl.disable.cache", underlyingFs.getScheme());
+    URI uri = FileSystem.getDefaultUri(fsConf);
+    String disableCacheName = String.format("fs.%s.impl.disable.cache", uri.getScheme());
     this.closableFs = fsConf.getBoolean(disableCacheName, false);
   }
 
@@ -107,6 +108,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   /**
    * This method should never be used on {@link DrillFileSystem} since {@link DrillFileSystem} is immutable.
    * {@inheritDoc}
+   *
    * @throws UnsupportedOperationException when called.
    */
   @Override
@@ -122,6 +124,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   /**
    * Returns a copy of {@link Configuration} for this {@link DrillFileSystem}.
    * <b>Note: </b> a copy of the {@link Configuration} is returned in order to enforce immutability.
+   *
    * @return A copy of {@link Configuration} for this {@link DrillFileSystem}.
    */
   @Override
@@ -168,6 +171,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   /**
    * This method should never be used on {@link DrillFileSystem} since {@link DrillFileSystem} is immutable.
    * {@inheritDoc}
+   *
    * @throws UnsupportedOperationException when called.
    */
   @Override
@@ -217,7 +221,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
 
   @Override
   public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize, short replication,
-      long blockSize) throws IOException {
+                                   long blockSize) throws IOException {
     return underlyingFs.create(f, overwrite, bufferSize, replication, blockSize);
   }
 
@@ -259,6 +263,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   /**
    * This method should never be used on {@link DrillFileSystem} since {@link DrillFileSystem} is immutable.
    * {@inheritDoc}
+   *
    * @throws UnsupportedOperationException when called.
    */
   @Override
@@ -269,6 +274,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   /**
    * This method should never be used on {@link DrillFileSystem} since {@link DrillFileSystem} is immutable.
    * {@inheritDoc}
+   *
    * @throws UnsupportedOperationException when called.
    */
   @Override
@@ -506,21 +512,21 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
 
   @Override
   public FSDataOutputStream create(Path f, FsPermission permission, EnumSet<CreateFlag> flags, int bufferSize,
-      short replication, long blockSize, Progressable progress, ChecksumOpt checksumOpt) throws IOException {
+                                   short replication, long blockSize, Progressable progress, ChecksumOpt checksumOpt) throws IOException {
     return underlyingFs.create(f, permission, flags, bufferSize, replication, blockSize, progress, checksumOpt);
   }
 
   @Override
   @Deprecated
   public FSDataOutputStream createNonRecursive(Path f, boolean overwrite, int bufferSize, short replication,
-      long blockSize, Progressable progress) throws IOException {
+                                               long blockSize, Progressable progress) throws IOException {
     return underlyingFs.createNonRecursive(f, overwrite, bufferSize, replication, blockSize, progress);
   }
 
   @Override
   @Deprecated
   public FSDataOutputStream createNonRecursive(Path f, FsPermission permission, boolean overwrite, int bufferSize,
-      short replication, long blockSize, Progressable progress) throws IOException {
+                                               short replication, long blockSize, Progressable progress) throws IOException {
     return underlyingFs.createNonRecursive(f, permission, overwrite, bufferSize, replication, blockSize, progress);
   }
 
@@ -553,7 +559,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
 
   @Override
   public FSDataOutputStream create(Path f, FsPermission permission, EnumSet<CreateFlag> flags, int bufferSize,
-      short replication, long blockSize, Progressable progress) throws IOException {
+                                   short replication, long blockSize, Progressable progress) throws IOException {
     return underlyingFs.create(f, permission, flags, bufferSize, replication, blockSize, progress);
   }
 
@@ -610,6 +616,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
   /**
    * This method should never be used on {@link DrillFileSystem} since {@link DrillFileSystem} is immutable.
    * {@inheritDoc}
+   *
    * @throws UnsupportedOperationException when called.
    */
   @Override
@@ -799,6 +806,7 @@ public class DrillFileSystem extends FileSystem implements OpenFileTracker {
       return open(path);
     }
   }
+
   @Override
   public void fileOpened(Path path, DrillFSDataInputStream fsDataInputStream) {
     openedFiles.put(fsDataInputStream, new DebugStackTrace(path, Thread.currentThread().getStackTrace()));
