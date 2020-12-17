@@ -177,7 +177,9 @@ public class ScanBatch implements CloseableRecordBatch {
   @Override
   public void cancel() {
     done = true;
-    releaseAssets();
+    // We cannot release assets here, since data can be prefetched in AbstractBinaryRecordBatch,
+    // and some operators (such as UnionAll) can try to read prefetched data even after cancellation.
+    // releaseAssets();
   }
 
   /**
