@@ -71,6 +71,18 @@ public class TestUnionAll extends BaseTestQuery {
         .build().run();
   }
 
+  @Test  // Simple Union-All over two scans and limit
+  public void testUnionAll1Limit1() throws Exception {
+    String query = "select * from ((select n_regionkey from cp.`tpch/nation.parquet`) union all (select r_regionkey from cp.`tpch/region.parquet`)) limit 1";
+
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("n_regionkey")
+        .baselineValues(0)
+        .build().run();
+  }
+
   @Test  // Union-All over inner joins
   public void testUnionAll2() throws Exception {
     String query =
