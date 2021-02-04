@@ -45,13 +45,15 @@ public class ListAggFunctions {
     <#continue>
   </#if>
 
-  <#list ["Simple", "WithSeparator"] as mode>
+  <#list ["Simple", "WithSeparator", "WithNullableSeparator"] as mode>
 
   @FunctionTemplate(name = "listagg", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
   public static class ListAgg${type.source}${mode} implements DrillAggFunc {
     @Param ${type.source}Holder in;
     <#if mode == "WithSeparator">
     @Param VarCharHolder separator;
+    <#elseif mode == "WithNullableSeparator">
+    @Param NullableVarCharHolder separator;
     </#if>
     @Workspace BitHolder isSet;
     @Workspace ObjectHolder aggregate;
@@ -95,10 +97,22 @@ public class ListAggFunctions {
         sb.append(s);
       }
       </#if>
+      <#if mode == "WithNullableSeparator">
+      if (!str.isEmpty() && sb.length() > 0 && separator.isSet == 1) {
+        String s = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(separator.start, separator.end, separator.buffer);
+        sb.append(s);
+      }
+      </#if>
       sb.append(str);
       <#else>
         <#if mode == "WithSeparator">
       if (sb.length() > 0) {
+        String s = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(separator.start, separator.end, separator.buffer);
+        sb.append(s);
+      }
+        </#if>
+        <#if mode == "WithNullableSeparator">
+      if (sb.length() > 0 && separator.isSet == 1) {
         String s = org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(separator.start, separator.end, separator.buffer);
         sb.append(s);
       }
