@@ -1573,7 +1573,7 @@ public class StringFunctions{
 
     @Override
     public void eval() {
-      out.buffer = buffer.reallocIfNeeded( (left.end - left.start) + (right.end - right.start));
+      out.buffer = buffer = buffer.reallocIfNeeded( (left.end - left.start) + (right.end - right.start));
       out.start = out.end = 0;
 
       int id = 0;
@@ -1606,7 +1606,7 @@ public class StringFunctions{
 
     @Override
     public void eval() {
-      out.buffer = buffer.reallocIfNeeded( (left.end - left.start) + (right.end - right.start));
+      out.buffer = buffer = buffer.reallocIfNeeded( (left.end - left.start) + (right.end - right.start));
       out.start = out.end = 0;
 
       int id = 0;
