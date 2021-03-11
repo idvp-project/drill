@@ -421,6 +421,11 @@ class PageReader {
     if (pageData != null) {
       pageData.release();
       pageData = null;
+      valueReader = null;
+      definitionLevels = null;
+      repetitionLevels = null;
+      dictionaryLengthDeterminingReader = null;
+      dictionaryValueReader = null;
     }
   }
 
