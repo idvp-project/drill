@@ -284,6 +284,12 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     public String getQueryUserName() {
       return "fred";
     }
+
+    @Override
+    public SchemaPlus getRootSchema() {
+      return null;
+    }
+
     @Override
     public SchemaPlus getFullRootSchema() {
       return null;
