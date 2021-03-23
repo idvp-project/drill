@@ -154,6 +154,14 @@ public interface FragmentContext extends UdfUtilities, AutoCloseable {
 
   OperatorContext newOperatorContext(PhysicalOperator popConfig, OperatorStats stats);
 
+  /**
+   * @return lazy populated root schema
+   */
+  SchemaPlus getRootSchema();
+
+  /**
+   * @return eager populated root schema
+   */
   SchemaPlus getFullRootSchema();
 
   String getQueryUserName();
