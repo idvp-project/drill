@@ -34,6 +34,7 @@ import org.joda.time.Period;
 public class DateUtilities {
 
   public static final int yearsToMonths = 12;
+  public static final int weeksToMonths = 7;
   public static final int hoursToMillis = 60 * 60 * 1000;
   public static final int minutesToMillis = 60 * 1000;
   public static final int secondsToMillis = 1000;
