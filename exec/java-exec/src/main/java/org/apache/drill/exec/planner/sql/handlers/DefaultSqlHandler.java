@@ -19,17 +19,12 @@ package org.apache.drill.exec.planner.sql.handlers;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ser.PropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
-import org.apache.calcite.sql.*;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.drill.exec.util.Utilities;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
@@ -54,6 +49,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.tools.Program;
@@ -190,75 +187,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
    * @return Rewritten sql parse tree
    */
   protected SqlNode rewrite(SqlNode node) throws RelConversionException, ForemanSetupException {
-        return rewriteGetEnv(node);
-  }
-
-  /**
-   * Rewrite get_env('var','default_value') sql call
-   * @param node sql parse tree to be rewritten
-   * @return Rewritten sql parse tree
-   * @throws RelConversionException for any get_env exceptions
-   */
-  private SqlNode rewriteGetEnv(SqlNode node) throws RelConversionException {
-    final Set<SqlParserPos> kindErrorPositions = new HashSet<>();
-    final Set<SqlParserPos> argCountErrorPositions = new HashSet<>();
-
-
-    final SqlNode sqlNode = node.accept(new SqlShuttle() {
-      @Override
-      public SqlNode visit(SqlCall call) {
-        if (call.getOperator().getName().equalsIgnoreCase("get_env")) {
-
-          for (int i = 0; i < call.operandCount(); i++) {
-            SqlNode operand = call.operand(i);
-            if (operand.getKind() != SqlKind.LITERAL) {
-              kindErrorPositions.add(operand.getParserPosition());
-              return call;
-            }
-          }
-
-          if (call.operandCount() != 2) {
-            argCountErrorPositions.add(call.getParserPosition());
-            return call;
-          }
-
-          final String env = ((SqlLiteral) call.operand(0)).toValue();
-          String getEnvValue;
-
-          if (System.getenv().containsKey(env)) {
-            getEnvValue = System.getenv().get(env);
-          } else {
-            getEnvValue = ((SqlLiteral) call.operand(1)).toValue();
-          }
-
-          return SqlLiteral.createCharString(getEnvValue, call.getParserPosition());
-
-
-        } else {
-          return super.visit(call);
-        }
-      }
-    });
-    if (!kindErrorPositions.isEmpty()) {
-      throw new RelConversionException("get_env expression expects a literal operands at" + getErrorPositions(kindErrorPositions));
-    }
-    if (!argCountErrorPositions.isEmpty()) {
-      throw new RelConversionException("get_env expression expects a two literal operands at" + getErrorPositions(argCountErrorPositions));
-    }
-
-    return sqlNode;
-  }
-
-  private String getErrorPositions(Collection<SqlParserPos> errorPositions) {
-      if(errorPositions.isEmpty())
-          return "";
-      final StringBuilder builder = new StringBuilder();
-      for(final SqlParserPos pos : errorPositions) {
-          builder.append(" line: ").append(pos.getLineNum())
-                  .append(" column: ").append(pos.getColumnNum())
-                  .append(";");
-      }
-      return builder.toString();
+    return node;
   }
 
   protected ConvertedRelNode validateAndConvert(SqlNode sqlNode) throws ForemanSetupException, RelConversionException, ValidationException {

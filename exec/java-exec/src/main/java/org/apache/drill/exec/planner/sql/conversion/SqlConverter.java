@@ -171,7 +171,7 @@ public class SqlConverter {
   public SqlNode parse(String sql) {
     try {
       SqlParser parser = SqlParser.create(sql, parserConfig);
-      return parser.parseStmt();
+      return rewriteGetEnv(parser.parseStmt());
     } catch (SqlParseException parseError) {
       DrillSqlParseException dex = new DrillSqlParseException(sql, parseError);
       UserException.Builder builder = UserException
@@ -182,6 +182,62 @@ public class SqlConverter {
       }
       throw builder.build(logger);
     }
+  }
+
+  /**
+   * Rewrite get_env('var','default_value') sql call
+   * @param node sql parse tree to be rewritten
+   * @return Rewritten sql parse tree
+   * @throws SqlParseException for any get_env exceptions
+   */
+  private SqlNode rewriteGetEnv(SqlNode node) throws SqlParseException {
+    final java.util.Set<org.apache.calcite.sql.parser.SqlParserPos> kindErrorPositions = new java.util.HashSet<>();
+    final java.util.Set<org.apache.calcite.sql.parser.SqlParserPos> argCountErrorPositions = new java.util.HashSet<>();
+
+
+    final SqlNode sqlNode = node.accept(new org.apache.calcite.sql.util.SqlShuttle() {
+      @Override
+      public SqlNode visit(org.apache.calcite.sql.SqlCall call) {
+        if (call.getOperator().getName().equalsIgnoreCase("get_env")) {
+
+          for (int i = 0; i < call.operandCount(); i++) {
+            SqlNode operand = call.operand(i);
+            if (operand.getKind() != org.apache.calcite.sql.SqlKind.LITERAL) {
+              kindErrorPositions.add(operand.getParserPosition());
+              return call;
+            }
+          }
+
+          if (call.operandCount() != 2) {
+            argCountErrorPositions.add(call.getParserPosition());
+            return call;
+          }
+
+          final String env = ((org.apache.calcite.sql.SqlLiteral) call.operand(0)).toValue();
+          String getEnvValue;
+
+          if (System.getenv().containsKey(env)) {
+            getEnvValue = System.getenv().get(env);
+          } else {
+            getEnvValue = ((org.apache.calcite.sql.SqlLiteral) call.operand(1)).toValue();
+          }
+
+          return org.apache.calcite.sql.SqlLiteral.createCharString(getEnvValue, call.getParserPosition());
+
+
+        } else {
+          return super.visit(call);
+        }
+      }
+    });
+    if (!kindErrorPositions.isEmpty()) {
+      throw new SqlParseException("get_env expression expects a literal operands", kindErrorPositions.iterator().next(), null, null, null);
+    }
+    if (!argCountErrorPositions.isEmpty()) {
+      throw new SqlParseException("get_env expression expects a two literal operands", argCountErrorPositions.iterator().next(), null, null, null);
+    }
+
+    return sqlNode;
   }
 
   public SqlNode validate(final SqlNode parsedNode) {
