@@ -79,6 +79,7 @@ public class ExplainHandler extends DefaultSqlHandler {
 
   @Override
   public SqlNode rewrite(SqlNode sqlNode) throws RelConversionException, ForemanSetupException {
+    sqlNode = super.rewrite(sqlNode);
     SqlExplain node = unwrap(sqlNode, SqlExplain.class);
     SqlLiteral op = node.operand(2);
     SqlExplain.Depth depth = (SqlExplain.Depth) op.getValue();

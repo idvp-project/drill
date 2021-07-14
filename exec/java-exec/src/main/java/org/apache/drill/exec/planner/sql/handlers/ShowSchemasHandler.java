@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.calcite.sql.SqlCharStringLiteral;
+import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.util.NlsString;
 import org.apache.drill.exec.planner.sql.parser.DrillParserUtil;
 import org.apache.drill.exec.planner.sql.parser.SqlShowSchemas;
@@ -43,7 +44,8 @@ public class ShowSchemasHandler extends DefaultSqlHandler {
 
   /** Rewrite the parse tree as SELECT ... FROM INFORMATION_SCHEMA.SCHEMATA ... */
   @Override
-  public SqlNode rewrite(SqlNode sqlNode) throws ForemanSetupException {
+  public SqlNode rewrite(SqlNode sqlNode) throws ForemanSetupException, RelConversionException {
+    sqlNode = super.rewrite(sqlNode);
     SqlShowSchemas node = unwrap(sqlNode, SqlShowSchemas.class);
     List<SqlNode> selectList = Collections.singletonList(new SqlIdentifier(SCHS_COL_SCHEMA_NAME, SqlParserPos.ZERO));
 

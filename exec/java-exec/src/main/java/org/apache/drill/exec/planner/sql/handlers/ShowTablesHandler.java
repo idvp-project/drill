@@ -52,7 +52,8 @@ public class ShowTablesHandler extends DefaultSqlHandler {
 
   /** Rewrite the parse tree as SELECT ... FROM INFORMATION_SCHEMA.`TABLES` ... */
   @Override
-  public SqlNode rewrite(SqlNode sqlNode) throws ForemanSetupException {
+  public SqlNode rewrite(SqlNode sqlNode) throws ForemanSetupException, RelConversionException {
+    sqlNode = super.rewrite(sqlNode);
     SqlShowTables node = unwrap(sqlNode, SqlShowTables.class);
     List<SqlNode> selectList = Arrays.asList(
         new SqlIdentifier(SHRD_COL_TABLE_SCHEMA, SqlParserPos.ZERO),

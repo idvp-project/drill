@@ -24,7 +24,7 @@
   <parent>
     <groupId>org.apache.drill.contrib.storage-hive</groupId>
     <artifactId>drill-contrib-storage-hive-parent</artifactId>
-    <version>1.18.0-2.5.11</version>
+    <version>1.18.0-2.5.12</version>
   </parent>
 
   <artifactId>drill-hive-exec-shaded</artifactId>

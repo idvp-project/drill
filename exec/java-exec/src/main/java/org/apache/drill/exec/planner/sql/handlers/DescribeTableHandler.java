@@ -58,7 +58,8 @@ public class DescribeTableHandler extends DefaultSqlHandler {
 
   /** Rewrite the parse tree as SELECT ... FROM INFORMATION_SCHEMA.COLUMNS ... */
   @Override
-  public SqlNode rewrite(SqlNode sqlNode) throws ForemanSetupException {
+  public SqlNode rewrite(SqlNode sqlNode) throws ForemanSetupException, RelConversionException {
+    sqlNode = super.rewrite(sqlNode);
     DrillSqlDescribeTable node = unwrap(sqlNode, DrillSqlDescribeTable.class);
 
     try {
