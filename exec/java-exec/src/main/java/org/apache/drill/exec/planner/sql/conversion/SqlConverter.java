@@ -200,7 +200,7 @@ public class SqlConverter {
     final SqlNode sqlNode = node.accept(new org.apache.calcite.sql.util.SqlShuttle() {
       @Override
       public SqlNode visit(org.apache.calcite.sql.SqlCall call) {
-        if (call.getOperator().getName().equalsIgnoreCase("get_env")) {
+        if (call.getOperator().getName().equalsIgnoreCase(org.apache.drill.exec.expr.fn.impl.GetEnvFunction.NAME)) {
 
           for (int i = 0; i < call.operandCount(); i++) {
             SqlNode operand = call.operand(i);
