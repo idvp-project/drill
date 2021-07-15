@@ -16,6 +16,7 @@ public class GetEnvFunction {
     public static class GetEnvFunctionImpl {
         @Param
         org.apache.drill.exec.expr.holders.VarCharHolder variable;
+        @Param
         org.apache.drill.exec.expr.holders.VarCharHolder defaultValue;
         @org.apache.drill.exec.expr.annotations.Output
         org.apache.drill.exec.expr.holders.VarCharHolder out;
