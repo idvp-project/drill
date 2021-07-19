@@ -191,8 +191,9 @@ public class SqlConverter {
    * @throws SqlParseException for any get_env exceptions
    */
   private SqlNode rewriteGetEnv(SqlNode node) throws SqlParseException {
-    if(node.getKind() == org.apache.calcite.sql.SqlKind.CREATE_VIEW)
+    if(node.getKind() == org.apache.calcite.sql.SqlKind.CREATE_VIEW) {
       return node;
+    }
     final java.util.Set<org.apache.calcite.sql.parser.SqlParserPos> kindErrorPositions = new java.util.HashSet<>();
     final java.util.Set<org.apache.calcite.sql.parser.SqlParserPos> argCountErrorPositions = new java.util.HashSet<>();
 
