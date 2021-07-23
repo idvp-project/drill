@@ -150,7 +150,7 @@ public final class ScanResult {
       }
       return result;
     } finally {
-      logger.info(
+      logger.debug(
           format("loading %d classes for %s took %dms",
               result.size(), c.getName(), watch.elapsed(MILLISECONDS)));
     }
