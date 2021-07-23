@@ -20,6 +20,7 @@ package org.apache.drill.exec.store;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,7 +139,8 @@ public class PluginHandle {
     if (plugin != null) {
       return plugin;
     }
-    logger.info("Creating storage plugin for {}", name);
+    final Stopwatch watch = Stopwatch.createStarted();
+    logger.debug("Creating storage plugin for {}", name);
     try {
       plugin = connector.newInstance(name, config);
     } catch (UserException e) {
@@ -149,6 +151,7 @@ public class PluginHandle {
         .addContext("Plugin class", connector.connectorClass().getName())
         .build(logger);
     }
+    logger.debug("Storage plugin created {} {}", name, watch);
     try {
       plugin.start();
     } catch (UserException e) {
@@ -162,6 +165,7 @@ public class PluginHandle {
         .addContext("Plugin class", connector.connectorClass().getName())
         .build(logger);
     }
+    logger.debug("Storage plugin created and started {} {}", name, watch);
     return plugin;
   }
 
