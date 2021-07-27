@@ -279,8 +279,9 @@ public enum PlannerPhase {
 
 
         final Builder<RelOptRule> rules = ImmutableSet.builder();
-        if (plugins == null || plugins.isEmpty())
+        if (plugins == null || plugins.isEmpty()) {
             return RuleSets.ofList(rules.build());
+        }
 
         final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
