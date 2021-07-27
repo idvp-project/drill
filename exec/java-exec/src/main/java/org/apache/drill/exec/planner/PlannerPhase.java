@@ -281,6 +281,44 @@ public enum PlannerPhase {
         final Builder<RelOptRule> rules = ImmutableSet.builder();
         if (plugins == null || plugins.isEmpty()) {
             return RuleSets.ofList(rules.build());
+
+        final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+
+
+        Set<CompletableFuture<Set<RelOptRule>>> futures = new HashSet<>();
+
+        for (StoragePlugin storagePlugin : plugins) {
+
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                final Stopwatch pluginWatch = Stopwatch.createStarted();
+                final Set<RelOptRule> result = new HashSet<>();
+                if (storagePlugin instanceof AbstractStoragePlugin) {
+                    result.addAll(((AbstractStoragePlugin) storagePlugin).getOptimizerRules(context, phase));
+                } else {
+                    result.addAll(storagePlugin.getOptimizerRules(context));
+                }
+                LoggerFactory.getLogger(PlannerPhase.class).debug("{} {} getOptimizerRules: {}", phase.name(), storagePlugin.getName(), pluginWatch);
+                return result;
+            }, executorService).whenComplete((r, e) -> {
+                if (e != null) {
+                    LoggerFactory.getLogger(PlannerPhase.class).error("Error while get optimizer rules", e);
+                }
+            }));
+        }
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+            for (CompletableFuture<Set<RelOptRule>> future : futures) {
+                rules.addAll(future.get());
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            LoggerFactory.getLogger(PlannerPhase.class).error("Error while get all optimizer rules", e);
+        }
+
+        final ImmutableSet<RelOptRule> build = rules.build();
+        LoggerFactory.getLogger(PlannerPhase.class).debug("{} Total getStorageRules: {}", phase.name(), watch);
+
+        return RuleSets.ofList(build);
         }
 
         final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
