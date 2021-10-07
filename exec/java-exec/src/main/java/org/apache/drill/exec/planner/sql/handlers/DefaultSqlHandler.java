@@ -166,16 +166,37 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
 
   @Override
   public PhysicalPlan getPlan(SqlNode sqlNode) throws ValidationException, RelConversionException, IOException, ForemanSetupException {
+    final Stopwatch commonWatch = Stopwatch.createStarted();
+    final Stopwatch watch = Stopwatch.createStarted();
     final ConvertedRelNode convertedRelNode = validateAndConvert(sqlNode);
     final RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
     final RelNode queryRelNode = convertedRelNode.getConvertedNode();
+    logger.debug("validate and convert: {}", watch);
 
+    watch.reset();
+    watch.start();
     final DrillRel drel = convertToDrel(queryRelNode);
+    logger.debug("convertToDrel: {}", watch);
+
+    watch.reset();
+    watch.start();
     final Prel prel = convertToPrel(drel, validatedRowType);
+    logger.debug("convertToPrel: {}", watch);
+
     logAndSetTextPlan("Drill Physical", prel, logger);
+
+    watch.reset();
+    watch.start();
     final PhysicalOperator pop = convertToPop(prel);
+    logger.debug("convertToPop: {}", watch);
+
+    watch.reset();
+    watch.start();
     final PhysicalPlan plan = convertToPlan(pop);
+    logger.debug("convertToPlan: {}", watch);
+
     log("Drill Plan", plan, logger);
+    logger.debug("Total getPlan: {}", commonWatch);
     return plan;
   }
 
@@ -365,6 +386,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       boolean log) {
     final Stopwatch watch = Stopwatch.createStarted();
     final RuleSet rules = config.getRules(phase);
+    logger.debug("PHASE {} getRules {}", phase.name(), watch);
     final RelTraitSet toTraits = targetTraits.simplify();
 
     final RelNode output;
@@ -412,7 +434,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     if (log) {
       log(plannerType, phase, output, logger, watch);
     }
-
+    logger.debug("PHASE {} transform {}", phase.name(), watch);
     return output;
   }
 
