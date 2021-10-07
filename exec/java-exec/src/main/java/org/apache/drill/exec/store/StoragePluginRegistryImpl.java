@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.calcite.schema.SchemaPlus;
@@ -224,6 +226,37 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
     }
     defineConnectors();
     prepareStore();
+  }
+
+  @Override
+  public void initPlugins() {
+    Integer coresCount = Runtime.getRuntime().availableProcessors() > 1 ? Runtime.getRuntime().availableProcessors() - 1 : 1;
+    // Splits plugin names
+    Set<String> pluginNameSet = availablePlugins();
+    String[] pluginNames = pluginNameSet.toArray(new String[pluginNameSet.size()]);
+    List<String>[] pluginsLists = new List[coresCount];
+
+    for (int i = 0; i < coresCount; i++) {
+      pluginsLists[i] = new ArrayList<>();
+    }
+    for (int i = 0; i < pluginNames.length; i++) {
+      pluginsLists[i % coresCount].add(pluginNames[i]);
+    }
+
+    // Inits plugins
+    ExecutorService executorService = Executors.newFixedThreadPool(coresCount);
+    for (int i = 0; i < coresCount; i++) {
+      List<String> plugins = pluginsLists[i];
+      executorService.execute(() -> {
+        for (String pluginName : plugins) {
+          try {
+            getPlugin(pluginName);
+          } catch (StoragePluginRegistry.PluginException e) {
+            logger.error(e.getLocalizedMessage(), e);
+          }
+        }
+      });
+    }
   }
 
   private void loadIntrinsicPlugins() throws PluginException {

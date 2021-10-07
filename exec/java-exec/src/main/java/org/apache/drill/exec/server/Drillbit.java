@@ -249,38 +249,8 @@ public class Drillbit implements AutoCloseable {
     shutdownHook = new ShutdownThread(this, new StackTrace());
     Runtime.getRuntime().addShutdownHook(shutdownHook);
     gracefulShutdownThread.start();
-    initPlugins();
+    storageRegistry.initPlugins();
     logger.info("Startup completed ({} ms).", w.elapsed(TimeUnit.MILLISECONDS));
-  }
-
-  private void initPlugins() {
-    Integer coresCount = Runtime.getRuntime().availableProcessors();
-    // Splits plugin names
-    Set<String> pluginNameSet = storageRegistry.availablePlugins();
-    String[] pluginNames = pluginNameSet.toArray(new String[pluginNameSet.size()]);
-    List<String>[] pluginsLists = new List[coresCount];
-
-    for (int i = 0; i < coresCount; i++) {
-      pluginsLists[i] = new ArrayList<>();
-    }
-    for (int i = 0; i < pluginNames.length; i++) {
-      pluginsLists[i % coresCount].add(pluginNames[i]);
-    }
-
-    // Inits plugins
-    ExecutorService executorService = Executors.newFixedThreadPool(coresCount);
-    for (int i = 0; i < coresCount; i++) {
-      List<String> plugins = pluginsLists[i];
-      executorService.execute(() -> {
-        for (String pluginName : plugins) {
-          try {
-            storageRegistry.getPlugin(pluginName);
-          } catch (StoragePluginRegistry.PluginException e) {
-            logger.error(e.getLocalizedMessage(), e);
-          }
-        }
-      });
-    }
   }
 
   /**

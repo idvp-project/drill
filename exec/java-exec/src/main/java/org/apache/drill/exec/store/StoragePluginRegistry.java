@@ -75,6 +75,11 @@ public interface StoragePluginRegistry extends Iterable<Map.Entry<String, Storag
   void init();
 
   /**
+   * Initialize all storage plugins
+   */
+  void initPlugins();
+
+  /**
    * Store a plugin by name and configuration. If the plugin already exists,
    * update the plugin. This form directly updates persistent storage. The
    * in-memory cache is updated on the next refresh. This form will accept an
