@@ -66,7 +66,12 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -244,7 +249,38 @@ public class Drillbit implements AutoCloseable {
     shutdownHook = new ShutdownThread(this, new StackTrace());
     Runtime.getRuntime().addShutdownHook(shutdownHook);
     gracefulShutdownThread.start();
+    initPlugins();
     logger.info("Startup completed ({} ms).", w.elapsed(TimeUnit.MILLISECONDS));
+  }
+
+  private void initPlugins() {
+    Integer coresCount = Runtime.getRuntime().availableProcessors();
+    // Splits plugin names
+    Set<String> pluginNameSet = storageRegistry.availablePlugins();
+    String[] pluginNames = pluginNameSet.toArray(new String[pluginNameSet.size()]);
+    List<String>[] pluginsLists = new List[coresCount];
+
+    for (int i = 0; i < coresCount; i++) {
+      pluginsLists[i] = new ArrayList<>();
+    }
+    for (int i = 0; i < pluginNames.length; i++) {
+      pluginsLists[i % coresCount].add(pluginNames[i]);
+    }
+
+    // Inits plugins
+    ExecutorService executorService = Executors.newFixedThreadPool(coresCount);
+    for (int i = 0; i < coresCount; i++) {
+      List<String> plugins = pluginsLists[i];
+      executorService.execute(() -> {
+        for (String pluginName : plugins) {
+          try {
+            storageRegistry.getPlugin(pluginName);
+          } catch (StoragePluginRegistry.PluginException e) {
+            logger.error(e.getLocalizedMessage(), e);
+          }
+        }
+      });
+    }
   }
 
   /**
