@@ -51,6 +51,7 @@ import org.apache.drill.exec.planner.logical.DrillWindowRule;
 import org.apache.drill.exec.planner.physical.MetadataAggPrule;
 import org.apache.drill.exec.planner.physical.MetadataControllerPrule;
 import org.apache.drill.exec.planner.physical.MetadataHandlerPrule;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet.Builder;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -93,6 +94,7 @@ import org.apache.drill.exec.planner.physical.WriterPrule;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.store.parquet.FilePushDownFilter;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -264,17 +266,25 @@ public enum PlannerPhase {
   public abstract RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins);
 
   @SuppressWarnings("deprecation")
-  private static RuleSet getStorageRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins,
-      PlannerPhase phase) {
+  private static RuleSet getStorageRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins, PlannerPhase phase) {
+
+    final Stopwatch watch = Stopwatch.createStarted();
+
     final Builder<RelOptRule> rules = ImmutableSet.builder();
     for (StoragePlugin plugin : plugins) {
+      final Stopwatch pluginWatch = Stopwatch.createStarted();
+      LoggerFactory.getLogger(PlannerPhase.class).debug("{} {} getOptimizerRules started", phase.name(), plugin.getName());
       if (plugin instanceof AbstractStoragePlugin) {
         rules.addAll(((AbstractStoragePlugin) plugin).getOptimizerRules(context, phase));
       } else {
         rules.addAll(plugin.getOptimizerRules(context));
       }
+      LoggerFactory.getLogger(PlannerPhase.class).debug("{} {} getOptimizerRules: {}", phase.name(), plugin.getName(), pluginWatch);
     }
-    return RuleSets.ofList(rules.build());
+
+    final RuleSet relOptRules = RuleSets.ofList(rules.build());
+    LoggerFactory.getLogger(PlannerPhase.class).debug("{} Total getStorageRules: {}", phase.name(), watch);
+    return relOptRules;
   }
 
   static final RelOptRule DRILL_JOIN_TO_MULTIJOIN_RULE =
