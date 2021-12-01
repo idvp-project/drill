@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store;
 
-import com.google.common.base.Stopwatch;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
