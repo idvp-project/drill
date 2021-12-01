@@ -3915,11 +3915,11 @@
   <distributionManagement>
     <repository>
       <id>libs-mvn-local</id>
-      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+      <url>http://arti.inf1.idvp.local/artifactory/libs-snapshot-local/</url>
     </repository>
     <snapshotRepository>
       <id>libs-mvn-local</id>
-      <url>https://artifactory.inf.idvp.net:443/artifactory/libs-mvn-local</url>
+      <url>http://arti.inf1.idvp.local/artifactory/libs-snapshot-local/</url>
     </snapshotRepository>
   </distributionManagement>
 </project>
