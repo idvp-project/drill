@@ -23,6 +23,7 @@ import io.netty.buffer.ByteBuf;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
@@ -81,6 +82,8 @@ public class QueryManager implements AutoCloseable {
   private final IntObjectHashMap<IntObjectHashMap<FragmentData>> fragmentDataMap =
       new IntObjectHashMap<>();
   private final List<FragmentData> fragmentDataSet = Lists.newArrayList();
+
+  private final List<QueryCancellationListener> queryCancellationListeners = new CopyOnWriteArrayList<>();
 
   private final PersistentStore<QueryProfile> completedProfileStore;
   private final TransientStore<QueryInfo> runningProfileStore;
@@ -237,6 +240,19 @@ public class QueryManager implements AutoCloseable {
       controller.getTunnel(endpoint).unpauseFragment(new SignalListener(endpoint, handle,
         SignalListener.Signal.UNPAUSE), handle);
     }
+  }
+
+
+  void addCancellationListener(final QueryCancellationListener listener) {
+    queryCancellationListeners.add(listener);
+  }
+
+  void removeCancellationListener(final QueryCancellationListener listener) {
+    queryCancellationListeners.remove(listener);
+  }
+
+  void notifyCancellationRequested() {
+    queryCancellationListeners.forEach(QueryCancellationListener::cancel);
   }
 
   @Override

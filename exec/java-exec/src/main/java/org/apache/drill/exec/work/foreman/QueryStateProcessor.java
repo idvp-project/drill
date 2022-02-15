@@ -302,6 +302,7 @@ public class QueryStateProcessor implements AutoCloseable {
   }
 
   private void wrapUpCancellation() {
+    queryManager.notifyCancellationRequested();
     recordNewState(QueryState.CANCELLATION_REQUESTED);
     foremanResult.setCompleted(QueryState.CANCELED);
   }

@@ -71,6 +71,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.drill.exec.server.FailureUtils.EXIT_CODE_HEAP_OOM;
 
@@ -589,9 +590,17 @@ public class Foreman implements Runnable {
   }
 
   private void runSQL(final String sql) throws ExecutionSetupException {
-    final Pointer<String> textPlan = new Pointer<>();
-    final PhysicalPlan plan = DrillSqlWorker.getPlan(queryContext, sql, textPlan);
-    runPhysicalPlan(plan, textPlan);
+    AtomicBoolean cancelFlag = new AtomicBoolean();
+    QueryCancellationListener listener = () -> cancelFlag.set(true);
+    queryManager.addCancellationListener(listener);
+
+    try {
+      final Pointer<String> textPlan = new Pointer<>();
+      final PhysicalPlan plan = DrillSqlWorker.getPlan(queryContext, sql, textPlan, cancelFlag);
+      runPhysicalPlan(plan, textPlan);
+    } finally {
+      queryManager.removeCancellationListener(listener);
+    }
   }
 
   private PhysicalPlan convert(final LogicalPlan plan) throws OptimizerException {

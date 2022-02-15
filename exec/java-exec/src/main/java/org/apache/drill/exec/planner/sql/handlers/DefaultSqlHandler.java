@@ -542,7 +542,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     phyRelNode = phyRelNode.accept(
         new SplitUpComplexExpressions(
             config.getConverter().getTypeFactory(),
-            context.getPlannerSettings().functionImplementationRegistry,
+            context.getPlannerSettings().getFunctionImplementationRegistry(),
             phyRelNode.getCluster().getRexBuilder()
         ),
         null);
