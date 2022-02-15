@@ -97,7 +97,8 @@ public class PlanSplitter {
     switch(req.getType()) {
     case SQL:
       final Pointer<String> textPlan = new Pointer<>();
-      plan = DrillSqlWorker.getPlan(queryContext, query, textPlan);
+      // ServerMethod::PLAN_QUERY not used. So skip cancellation feature.
+      plan = DrillSqlWorker.getPlan(queryContext, query, textPlan, null);
       break;
     case PHYSICAL:
       plan = dContext.getPlanReader().readPhysicalPlan(query);

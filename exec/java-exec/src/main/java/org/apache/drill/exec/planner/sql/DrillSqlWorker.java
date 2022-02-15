@@ -18,6 +18,7 @@
 package org.apache.drill.exec.planner.sql;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.calcite.sql.SqlDescribeSchema;
 import org.apache.calcite.sql.SqlKind;
@@ -76,7 +77,7 @@ public class DrillSqlWorker {
    * @return query physical plan
    */
   public static PhysicalPlan getPlan(QueryContext context, String sql) throws ForemanSetupException {
-    return getPlan(context, sql, null);
+    return getPlan(context, sql, null, null);
   }
 
   /**
@@ -88,9 +89,9 @@ public class DrillSqlWorker {
    * @param textPlan text plan
    * @return query physical plan
    */
-  public static PhysicalPlan getPlan(QueryContext context, String sql, Pointer<String> textPlan) throws ForemanSetupException {
+  public static PhysicalPlan getPlan(QueryContext context, String sql, Pointer<String> textPlan, AtomicBoolean cancelFlag) throws ForemanSetupException {
     try {
-      return convertPlan(context, sql, textPlan);
+      return convertPlan(context, sql, textPlan, cancelFlag);
     } catch (ValidationException e) {
       String errorMessage = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
       throw UserException.validationError(e)
@@ -120,12 +121,12 @@ public class DrillSqlWorker {
    * @param textPlan text plan
    * @return query physical plan
    */
-  private static PhysicalPlan convertPlan(QueryContext context, String sql, Pointer<String> textPlan)
+  private static PhysicalPlan convertPlan(QueryContext context, String sql, Pointer<String> textPlan, AtomicBoolean cancelFlag)
       throws ForemanSetupException, RelConversionException, IOException, ValidationException {
     Pointer<String> textPlanCopy = textPlan == null ? null : new Pointer<>(textPlan.value);
     long retryAttempts = context.getOption(ExecConstants.METASTORE_RETRIEVAL_RETRY_ATTEMPTS).num_val;
     try {
-      return getPhysicalPlan(context, sql, textPlan, retryAttempts);
+      return getPhysicalPlan(context, sql, textPlan, cancelFlag, retryAttempts);
     } catch (Exception e) {
       logger.trace("There was an error during conversion into physical plan. " +
           "Will sync remote and local function registries if needed and retry " +
@@ -137,7 +138,7 @@ public class DrillSqlWorker {
         && context.getSQLStatementType() != SqlStatementType.ANALYZE) {
         context.reloadDrillOperatorTable();
         logger.trace("Local function registry was synchronized with remote. Trying to find function one more time.");
-        return getPhysicalPlan(context, sql, textPlanCopy, retryAttempts);
+        return getPhysicalPlan(context, sql, textPlanCopy, cancelFlag, retryAttempts);
       }
       throw e;
     }
@@ -158,9 +159,9 @@ public class DrillSqlWorker {
    * @return query physical plan
    */
   private static PhysicalPlan getPhysicalPlan(QueryContext context, String sql, Pointer<String> textPlan,
-      long retryAttempts) throws ForemanSetupException, RelConversionException, IOException, ValidationException {
+      AtomicBoolean cancelFlag, long retryAttempts) throws ForemanSetupException, RelConversionException, IOException, ValidationException {
     try {
-      return getQueryPlan(context, sql, textPlan);
+      return getQueryPlan(context, sql, textPlan, cancelFlag);
     } catch (Exception e) {
       Throwable rootCause = Throwables.getRootCause(e);
       // Calcite wraps exceptions thrown during planning, so checks whether original exception is OutdatedMetadataException
@@ -176,7 +177,7 @@ public class DrillSqlWorker {
             if (retryAttempts > 0) {
               logger.debug("Table metadata was changed during query planning. " +
                   "Retrying to obtain query plan using updated metadata.");
-              return getPhysicalPlan(context, sql, textPlan, --retryAttempts);
+              return getPhysicalPlan(context, sql, textPlan, cancelFlag, --retryAttempts);
             }
             logger.warn("Table metadata was changing during query planning for all `metastore.retrieval.retry_attempts` = {} attempts.",
                 context.getOption(ExecConstants.METASTORE_RETRIEVAL_RETRY_ATTEMPTS).num_val);
@@ -186,7 +187,7 @@ public class DrillSqlWorker {
         }
         logger.warn("Retrying to obtain query plan without Metastore usage.");
         context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
-        return getQueryPlan(context, sql, textPlan);
+        return getQueryPlan(context, sql, textPlan, cancelFlag);
       }
       throw e;
     }
@@ -200,10 +201,10 @@ public class DrillSqlWorker {
    * @param textPlan text plan
    * @return query physical plan
    */
-  private static PhysicalPlan getQueryPlan(QueryContext context, String sql, Pointer<String> textPlan)
+  private static PhysicalPlan getQueryPlan(QueryContext context, String sql, Pointer<String> textPlan, AtomicBoolean cancelFlag)
       throws ForemanSetupException, RelConversionException, IOException, ValidationException {
 
-    final SqlConverter parser = new SqlConverter(context);
+    final SqlConverter parser = new SqlConverter(context, cancelFlag);
     injector.injectChecked(context.getExecutionControls(), "sql-parsing", ForemanSetupException.class);
     final SqlNode sqlNode = checkAndApplyAutoLimit(parser, context, sql);
     final AbstractSqlHandler handler;

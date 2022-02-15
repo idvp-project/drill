@@ -19,6 +19,7 @@ package org.apache.drill.exec.planner.sql.conversion;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.adapter.java.JavaTypeFactory;
@@ -45,6 +46,7 @@ import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
+import org.apache.calcite.util.CancelFlag;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
@@ -62,6 +64,7 @@ import org.apache.drill.exec.planner.sql.SchemaUtilites;
 import org.apache.drill.exec.planner.sql.parser.impl.DrillSqlParseException;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.apache.drill.exec.rpc.user.UserSession;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.Utilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,8 +111,9 @@ public class SqlConverter {
     Hook.REL_BUILDER_SIMPLIFY.add(Hook.propertyJ(false));
   }
 
-  public SqlConverter(QueryContext context) {
-    this.settings = context.getPlannerSettings();
+  public SqlConverter(final QueryContext context, final AtomicBoolean cancelFlag) {
+    AtomicBoolean cf = cancelFlag == null ? new AtomicBoolean() : cancelFlag;
+    this.settings = new CancellablePlannerSettings(context.getPlannerSettings(), new CancelFlag(cf));
     this.util = context;
     this.functions = context.getFunctionRegistry();
     this.parserConfig = new DrillParserConfig(settings);
@@ -354,5 +358,27 @@ public class SqlConverter {
       planner.addRelTraitDef(RelCollationTraitDef.INSTANCE);
     }
     return planner;
+  }
+
+  private static class CancellablePlannerSettings extends PlannerSettings {
+
+    private final CancelFlag cancelFlag;
+
+    CancellablePlannerSettings(PlannerSettings settings,
+                               CancelFlag cancelFlag) {
+      super(settings);
+      this.cancelFlag = cancelFlag;
+    }
+
+    @Override
+    public <T> T unwrap(final Class<T> clazz) {
+      if (clazz == CancelFlag.class) {
+        return clazz.cast(cancelFlag);
+      } else if(clazz == PlannerSettings.class){
+        return clazz.cast(this);
+      } else {
+        return super.unwrap(clazz);
+      }
+    }
   }
 }

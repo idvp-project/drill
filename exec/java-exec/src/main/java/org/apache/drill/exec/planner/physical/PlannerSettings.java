@@ -240,16 +240,24 @@ public class PlannerSettings implements Context{
 
   public static final RangeDoubleValidator STATISTICS_MULTICOL_NDV_ADJUST_FACTOR = new RangeDoubleValidator("planner.statistics.multicol_ndv_adjustment_factor", 0.0, 1.0, null);
 
-  public OptionManager options = null;
-  public FunctionImplementationRegistry functionImplementationRegistry = null;
+  private final OptionManager options;
+  private final FunctionImplementationRegistry functionImplementationRegistry;
 
   public PlannerSettings(OptionManager options, FunctionImplementationRegistry functionImplementationRegistry){
     this.options = options;
     this.functionImplementationRegistry = functionImplementationRegistry;
   }
 
+  protected PlannerSettings(PlannerSettings parent) {
+    this(parent.options, parent.functionImplementationRegistry);
+  }
+
   public OptionManager getOptions() {
     return options;
+  }
+
+  public FunctionImplementationRegistry getFunctionImplementationRegistry() {
+    return functionImplementationRegistry;
   }
 
   public boolean isSingleMode() {
