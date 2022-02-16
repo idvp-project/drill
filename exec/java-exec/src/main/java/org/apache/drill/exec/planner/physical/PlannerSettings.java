@@ -250,6 +250,9 @@ public class PlannerSettings implements Context{
 
   protected PlannerSettings(PlannerSettings parent) {
     this(parent.options, parent.functionImplementationRegistry);
+    numEndPoints = parent.numEndPoints;
+    forceSingleMode = parent.forceSingleMode;
+    useDefaultCosting = parent.useDefaultCosting;
   }
 
   public OptionManager getOptions() {
