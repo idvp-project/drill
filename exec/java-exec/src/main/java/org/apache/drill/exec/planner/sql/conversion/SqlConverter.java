@@ -64,7 +64,6 @@ import org.apache.drill.exec.planner.sql.SchemaUtilites;
 import org.apache.drill.exec.planner.sql.parser.impl.DrillSqlParseException;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.apache.drill.exec.rpc.user.UserSession;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.Utilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
