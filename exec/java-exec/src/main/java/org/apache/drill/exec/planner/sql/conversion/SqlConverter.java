@@ -361,12 +361,45 @@ public class SqlConverter {
 
   private static class CancellablePlannerSettings extends PlannerSettings {
 
+    private final PlannerSettings parent;
     private final CancelFlag cancelFlag;
 
     CancellablePlannerSettings(PlannerSettings settings,
                                CancelFlag cancelFlag) {
       super(settings);
       this.cancelFlag = cancelFlag;
+      this.parent = settings;
+    }
+
+    @Override
+    public int numEndPoints() {
+      return parent.numEndPoints();
+    }
+
+    @Override
+    public void setNumEndPoints(int numEndPoints) {
+      parent.setNumEndPoints(numEndPoints);
+      super.setNumEndPoints(numEndPoints);
+    }
+
+    @Override
+    public boolean useDefaultCosting() {
+      return parent.useDefaultCosting();
+    }
+
+    public void setUseDefaultCosting(boolean defcost) {
+      parent.setUseDefaultCosting(defcost);
+      super.setUseDefaultCosting(defcost);
+    }
+
+    @Override
+    public boolean isSingleMode() {
+      return parent.isSingleMode();
+    }
+
+    public void forceSingleMode() {
+      parent.forceSingleMode();
+      super.forceSingleMode();
     }
 
     @Override
