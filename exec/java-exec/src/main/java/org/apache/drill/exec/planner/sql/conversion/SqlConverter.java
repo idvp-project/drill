@@ -64,7 +64,6 @@ import org.apache.drill.exec.planner.sql.SchemaUtilites;
 import org.apache.drill.exec.planner.sql.parser.impl.DrillSqlParseException;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.apache.drill.exec.rpc.user.UserSession;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.Utilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -362,12 +361,45 @@ public class SqlConverter {
 
   private static class CancellablePlannerSettings extends PlannerSettings {
 
+    private final PlannerSettings parent;
     private final CancelFlag cancelFlag;
 
     CancellablePlannerSettings(PlannerSettings settings,
                                CancelFlag cancelFlag) {
       super(settings);
       this.cancelFlag = cancelFlag;
+      this.parent = settings;
+    }
+
+    @Override
+    public int numEndPoints() {
+      return parent.numEndPoints();
+    }
+
+    @Override
+    public void setNumEndPoints(int numEndPoints) {
+      parent.setNumEndPoints(numEndPoints);
+      super.setNumEndPoints(numEndPoints);
+    }
+
+    @Override
+    public boolean useDefaultCosting() {
+      return parent.useDefaultCosting();
+    }
+
+    public void setUseDefaultCosting(boolean defcost) {
+      parent.setUseDefaultCosting(defcost);
+      super.setUseDefaultCosting(defcost);
+    }
+
+    @Override
+    public boolean isSingleMode() {
+      return parent.isSingleMode();
+    }
+
+    public void forceSingleMode() {
+      parent.forceSingleMode();
+      super.forceSingleMode();
     }
 
     @Override
